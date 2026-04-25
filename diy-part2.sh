@@ -26,11 +26,9 @@ sed -i 's/ci-llvm=true/ci-llvm=false/g' feeds/packages/lang/rust/Makefile
 sed -i -e '/^IMG_PREFIX:=/i BUILD_DATE := $(shell date +%Y%m%d)' \
        -e '/^IMG_PREFIX:=/ s/\($(SUBTARGET)\)/\1-$(BUILD_DATE)/' include/image.mk
 
-# Adapt Cudy TR3000 SN2544 / 512MB flash for the ubootmod/FIT layout.
-# /proc/mtd on the target device reports:
-#   mtd5 "ubi": offset 0x5c0000, size 0x1da40000
-sed -i 's/reg = <0x5c0000 0x7000000>;/reg = <0x5c0000 0x1da40000>;/' \
-  target/linux/mediatek/dts/mt7981b-cudy-tr3000-v1-ubootmod.dts
-
-grep -q 'reg = <0x5c0000 0x1da40000>;' \
-  target/linux/mediatek/dts/mt7981b-cudy-tr3000-v1-ubootmod.dts
+# Add the dedicated TR3000 512MB/NMBM target used with the multi-layout U-Boot.
+MOD_ROOT="${GITHUB_WORKSPACE:-$(cd "$(dirname "$0")" && pwd)}"
+cat "$MOD_ROOT/openwrt-mod/cudy-tr3000-512.mk" >> \
+  target/linux/mediatek/image/filogic.mk
+cp "$MOD_ROOT/openwrt-mod/mt7981b-cudy-tr3000-512mb-v1.dts" \
+  target/linux/mediatek/dts/
