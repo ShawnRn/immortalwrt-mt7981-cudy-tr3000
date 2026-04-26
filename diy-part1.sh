@@ -18,10 +18,13 @@
 #echo 'src-git passwall https://github.com/xiaorouji/openwrt-passwall' >>feeds.conf.default
 
 # Copy custom local packages into OpenWrt tree so they are available during build
-if [ -d "$GITHUB_WORKSPACE/package/luci-compat-keep" ]; then
-  mkdir -p package
-  cp -r "$GITHUB_WORKSPACE/package/luci-compat-keep" package/
-fi
+for pkg in luci-compat-keep minieap-gdufs luci-proto-minieap luci-i18n-minieap-zh-cn shawnwrt-defaults; do
+  if [ -d "$GITHUB_WORKSPACE/package/$pkg" ]; then
+    mkdir -p package
+    rm -rf "package/$pkg"
+    cp -r "$GITHUB_WORKSPACE/package/$pkg" package/
+  fi
+done
 
 git clone https://github.com/eamonxg/luci-theme-aurora package/luci-theme-aurora
 git clone https://github.com/eamonxg/luci-app-aurora-config package/luci-app-aurora-config

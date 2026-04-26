@@ -1,0 +1,29 @@
+#!/bin/sh
+
+LAN_IP="192.168.10.1"
+HOSTNAME="ShawnWrt"
+SSID="Everyday is Holiday."
+
+uci -q batch <<EOF
+set system.@system[0].hostname='${HOSTNAME}'
+set network.lan.ipaddr='${LAN_IP}'
+set dhcp.@dnsmasq[0].domain='lan'
+set dhcp.@dnsmasq[0].local='/lan/'
+del_list dhcp.@dnsmasq[0].address='/shawnwrt.lan/${LAN_IP}'
+add_list dhcp.@dnsmasq[0].address='/shawnwrt.lan/${LAN_IP}'
+commit system
+commit network
+commit dhcp
+EOF
+
+if uci -q show wireless >/dev/null 2>&1; then
+	for iface in $(uci -q show wireless | sed -n "s/^wireless\\.\\([^.=]*\\)=wifi-iface.*/\\1/p"); do
+		mode="$(uci -q get wireless.${iface}.mode)"
+		[ "$mode" = "ap" ] || continue
+		uci -q set wireless.${iface}.ssid="${SSID}"
+		uci -q set wireless.${iface}.disabled='0'
+	done
+	uci -q commit wireless
+fi
+
+exit 0
