@@ -15,6 +15,7 @@ on:
         default: 'all'
         options:
           - '512M-Mod490'
+          - '360T7-Stock'
           - '256M'
           - '128M'
           - '128M-Ubootmod'
@@ -86,6 +87,7 @@ jobs:
           case "$DEVICE_INPUT" in
             "256M") echo "CONFIG_FILE=config/256m.config" >> $GITHUB_ENV ;;
             "512M-Mod490") echo "CONFIG_FILE=config/512muboot.config" >> $GITHUB_ENV ;;
+            "360T7-Stock") echo "CONFIG_FILE=config/360t7.config" >> $GITHUB_ENV ;;
             "128M") echo "CONFIG_FILE=config/128m.config" >> $GITHUB_ENV ;;
             "128M-Ubootmod") echo "CONFIG_FILE=config/128muboot.config" >> $GITHUB_ENV ;;
           esac
@@ -222,6 +224,7 @@ jobs:
             # 2. 设置当前设备配置文件
             case "$DEV" in
               "512M-Mod490") CONFIG="config/512muboot.config" ;;
+              "360T7-Stock") CONFIG="config/360t7.config" ;;
               "256M") CONFIG="config/256m.config" ;;
               "128M") CONFIG="config/128m.config" ;;
               "128M-Ubootmod") CONFIG="config/128muboot.config" ;;
