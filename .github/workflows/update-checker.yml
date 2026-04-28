@@ -19,7 +19,8 @@ env:
 on:
   workflow_dispatch:
   schedule:
-    - cron: 0 0 1 * *
+    # Weekly upstream change check: Monday 04:20 Asia/Shanghai.
+    - cron: '20 20 * * 0'
 
 jobs:
   check:
@@ -50,7 +51,7 @@ jobs:
         with:
           token: ${{ github.token }}
           event-type: Source Code Update
-          client-payload: '{"device": "all", "repo": "https://github.com/padavanonly/immortalwrt-mt798x-6.6"}'
+          client-payload: '{"device": "ShawnRouters", "repo": "https://github.com/padavanonly/immortalwrt-mt798x-6.6", "release": "true", "prerelease": "false"}'
 
       - name: Delete workflow runs
         uses: Mattraks/delete-workflow-runs@v2
