@@ -1,0 +1,53 @@
+msgid ""
+msgstr "Content-Type: text/plain; charset=UTF-8"
+
+msgid "ShawnWrt OTA"
+msgstr "ShawnWrt 在线升级"
+
+msgid "Automatically matches the sysupgrade image for this router, verifies SHA256, and tests it before installation."
+msgstr "自动匹配当前设备的 sysupgrade 固件，下载后校验 SHA256，并在安装前执行升级测试。"
+
+msgid "Detected board"
+msgstr "设备目标"
+
+msgid "Latest release"
+msgstr "最新版本"
+
+msgid "Firmware image"
+msgstr "固件文件"
+
+msgid "File size"
+msgstr "文件大小"
+
+msgid "Unknown"
+msgstr "未知"
+
+msgid "No OTA information available."
+msgstr "暂无 OTA 信息。"
+
+msgid "Done."
+msgstr "完成。"
+
+msgid "Command failed. Check the output below."
+msgstr "命令执行失败，请查看下方输出。"
+
+msgid "Check"
+msgstr "检查更新"
+
+msgid "Test upgrade"
+msgstr "测试升级"
+
+msgid "Download"
+msgstr "下载固件"
+
+msgid "Install update"
+msgstr "安装更新"
+
+msgid "Cancel"
+msgstr "取消"
+
+msgid "The router will download, verify, test, and install the matching sysupgrade image while preserving configuration. Network access will be interrupted during installation."
+msgstr "路由器将下载、校验、测试并安装匹配的 sysupgrade 固件，现有配置会被保留。安装期间网络会中断。"
+
+msgid "Output"
+msgstr "执行输出"
