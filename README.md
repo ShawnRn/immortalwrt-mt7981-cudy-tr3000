@@ -75,7 +75,7 @@ ShawnWrt includes a small OTA helper and LuCI page:
 - CLI: `shawnwrt-ota`
 - LuCI: **System -> ShawnWrt OTA**
 - Standalone OTA package repo: <https://github.com/ShawnRn/shawnwrt-ota>
-- Built-in opkg feed: `src/gz shawnwrt_ota https://shawnrn.github.io/shawnwrt-ota`
+- Built-in opkg feed: `src/gz shawnwrt_ota https://raw.githubusercontent.com/ShawnRn/shawnwrt-ota/opkg`
 
 The OTA helper:
 
