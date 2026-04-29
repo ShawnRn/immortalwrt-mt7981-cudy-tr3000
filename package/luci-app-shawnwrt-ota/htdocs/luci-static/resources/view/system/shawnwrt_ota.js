@@ -220,25 +220,74 @@ return view.extend({
 
 		return E('div', { 'class': 'cbi-map shawnwrt-ota' }, [
 			E('style', {}, [`
-				.shawnwrt-ota .cbi-map-descr { margin-bottom: 1.25rem; max-width: 780px; }
-				.shawnwrt-ota-panel { border: 1px solid var(--border-color-medium, #ddd); border-radius: 10px; padding: 1rem; background: var(--background-color-high, #fff); }
-				.shawnwrt-ota-state { border-radius: 10px; padding: 1rem; margin-bottom: 1rem; border: 1px solid rgba(0,0,0,.08); }
-				.shawnwrt-ota-state h3 { margin: 0 0 .3rem; font-size: 1.2rem; }
-				.shawnwrt-ota-state p { margin: 0; color: var(--text-color-medium, #666); }
-				.shawnwrt-ota-state.is-current { background: rgba(46, 160, 67, .10); border-color: rgba(46, 160, 67, .25); }
-				.shawnwrt-ota-state.has-update { background: rgba(217, 119, 6, .12); border-color: rgba(217, 119, 6, .28); }
-				.shawnwrt-ota-state.is-unknown { background: rgba(59, 130, 246, .10); border-color: rgba(59, 130, 246, .25); }
+				.shawnwrt-ota {
+					--swrt-surface: var(--background-color-high, #fff);
+					--swrt-surface-muted: rgba(0,0,0,.035);
+					--swrt-border: rgba(0,0,0,.10);
+					--swrt-border-soft: rgba(0,0,0,.08);
+					--swrt-text: var(--text-color, #222);
+					--swrt-text-muted: var(--text-color-medium, #666);
+					--swrt-current-bg: rgba(46, 160, 67, .12);
+					--swrt-current-border: rgba(46, 160, 67, .30);
+					--swrt-update-bg: rgba(217, 119, 6, .14);
+					--swrt-update-border: rgba(217, 119, 6, .34);
+					--swrt-unknown-bg: rgba(59, 130, 246, .12);
+					--swrt-unknown-border: rgba(59, 130, 246, .30);
+					color: var(--swrt-text);
+				}
+				@media (prefers-color-scheme: dark) {
+					.shawnwrt-ota {
+						--swrt-surface: rgba(255,255,255,.06);
+						--swrt-surface-muted: rgba(255,255,255,.055);
+						--swrt-border: rgba(255,255,255,.14);
+						--swrt-border-soft: rgba(255,255,255,.11);
+						--swrt-text: rgba(255,255,255,.88);
+						--swrt-text-muted: rgba(255,255,255,.64);
+						--swrt-current-bg: rgba(46, 160, 67, .18);
+						--swrt-current-border: rgba(74, 222, 128, .36);
+						--swrt-update-bg: rgba(217, 119, 6, .20);
+						--swrt-update-border: rgba(251, 191, 36, .40);
+						--swrt-unknown-bg: rgba(59, 130, 246, .18);
+						--swrt-unknown-border: rgba(147, 197, 253, .38);
+					}
+				}
+				html[data-theme="dark"] .shawnwrt-ota,
+				html[data-darkmode="true"] .shawnwrt-ota,
+				body[data-theme="dark"] .shawnwrt-ota,
+				body.dark .shawnwrt-ota,
+				.dark .shawnwrt-ota {
+					--swrt-surface: rgba(255,255,255,.06);
+					--swrt-surface-muted: rgba(255,255,255,.055);
+					--swrt-border: rgba(255,255,255,.14);
+					--swrt-border-soft: rgba(255,255,255,.11);
+					--swrt-text: rgba(255,255,255,.88);
+					--swrt-text-muted: rgba(255,255,255,.64);
+					--swrt-current-bg: rgba(46, 160, 67, .18);
+					--swrt-current-border: rgba(74, 222, 128, .36);
+					--swrt-update-bg: rgba(217, 119, 6, .20);
+					--swrt-update-border: rgba(251, 191, 36, .40);
+					--swrt-unknown-bg: rgba(59, 130, 246, .18);
+					--swrt-unknown-border: rgba(147, 197, 253, .38);
+				}
+				.shawnwrt-ota .cbi-map-descr { margin-bottom: 1.25rem; max-width: 780px; color: var(--swrt-text-muted); }
+				.shawnwrt-ota-panel { border: 1px solid var(--swrt-border); border-radius: 10px; padding: 1rem; background: var(--swrt-surface); }
+				.shawnwrt-ota-state { border-radius: 10px; padding: 1rem; margin-bottom: 1rem; border: 1px solid var(--swrt-border-soft); }
+				.shawnwrt-ota-state h3 { margin: 0 0 .3rem; font-size: 1.2rem; color: var(--swrt-text); }
+				.shawnwrt-ota-state p { margin: 0; color: var(--swrt-text-muted); }
+				.shawnwrt-ota-state.is-current { background: var(--swrt-current-bg); border-color: var(--swrt-current-border); }
+				.shawnwrt-ota-state.has-update { background: var(--swrt-update-bg); border-color: var(--swrt-update-border); }
+				.shawnwrt-ota-state.is-unknown { background: var(--swrt-unknown-bg); border-color: var(--swrt-unknown-border); }
 				.shawnwrt-ota-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem 1rem; }
-				.shawnwrt-ota-row { min-width: 0; border-bottom: 1px solid rgba(0,0,0,.08); padding-bottom: .65rem; }
+				.shawnwrt-ota-row { min-width: 0; border-bottom: 1px solid var(--swrt-border-soft); padding-bottom: .65rem; }
 				.shawnwrt-ota-row:nth-last-child(-n+2) { border-bottom: 0; padding-bottom: 0; }
-				.shawnwrt-ota-label { color: var(--text-color-medium, #666); font-size: .9rem; margin-bottom: .2rem; }
-				.shawnwrt-ota-value { min-width: 0; overflow-wrap: anywhere; word-break: break-word; line-height: 1.35; }
+				.shawnwrt-ota-label { color: var(--swrt-text-muted); font-size: .9rem; margin-bottom: .2rem; }
+				.shawnwrt-ota-value { min-width: 0; overflow-wrap: anywhere; word-break: break-word; line-height: 1.35; color: var(--swrt-text); }
 				.shawnwrt-ota-mono, .shawnwrt-ota-output { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .88rem; }
 				.shawnwrt-ota-actions { display: flex; flex-wrap: wrap; gap: .5rem; margin: 1rem 0; }
 				.shawnwrt-ota-output-wrap { margin-top: .75rem; }
-				.shawnwrt-ota-output-title { color: var(--text-color-medium, #666); font-weight: 600; margin-bottom: .45rem; }
-				.shawnwrt-ota-output { white-space: pre-wrap; max-height: 16rem; overflow: auto; padding: .85rem; border-radius: 8px; border: 1px solid rgba(0,0,0,.08); background: rgba(0,0,0,.035); }
-				@media (max-width: 900px) { .shawnwrt-ota-grid { grid-template-columns: 1fr; } .shawnwrt-ota-row { border-bottom: 1px solid rgba(0,0,0,.08) !important; padding-bottom: .65rem !important; } }
+				.shawnwrt-ota-output-title { color: var(--swrt-text-muted); font-weight: 600; margin-bottom: .45rem; }
+				.shawnwrt-ota-output { white-space: pre-wrap; max-height: 16rem; overflow: auto; padding: .85rem; border-radius: 8px; border: 1px solid var(--swrt-border-soft); background: var(--swrt-surface-muted); color: var(--swrt-text); }
+				@media (max-width: 900px) { .shawnwrt-ota-grid { grid-template-columns: 1fr; } .shawnwrt-ota-row { border-bottom: 1px solid var(--swrt-border-soft) !important; padding-bottom: .65rem !important; } }
 			`]),
 			E('h2', L.title),
 			E('div', { 'class': 'cbi-map-descr' }, [L.subtitle]),

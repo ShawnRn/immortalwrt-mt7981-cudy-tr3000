@@ -3,6 +3,7 @@
 LAN_IP="192.168.10.1"
 HOSTNAME="ShawnWrt"
 SSID="Everyday is Holiday."
+OTA_FEED="src/gz shawnwrt_ota https://shawnrn.github.io/shawnwrt-ota"
 
 uci -q batch <<EOF
 set system.@system[0].hostname='${HOSTNAME}'
@@ -25,5 +26,9 @@ if uci -q show wireless >/dev/null 2>&1; then
 	done
 	uci -q commit wireless
 fi
+
+mkdir -p /etc/opkg
+touch /etc/opkg/customfeeds.conf
+grep -qF "${OTA_FEED}" /etc/opkg/customfeeds.conf || echo "${OTA_FEED}" >> /etc/opkg/customfeeds.conf
 
 exit 0

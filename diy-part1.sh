@@ -27,6 +27,7 @@ for pkg in luci-compat-keep minieap-gdufs luci-proto-minieap luci-i18n-minieap-z
 done
 
 git clone https://github.com/eamonxg/luci-theme-aurora package/luci-theme-aurora
+patch -d package/luci-theme-aurora -p1 < "$GITHUB_WORKSPACE/patches/luci-theme-aurora-login-perf.patch"
 git clone https://github.com/eamonxg/luci-app-aurora-config package/luci-app-aurora-config
 git clone https://github.com/timsaya/luci-app-bandix package/luci-app-bandix
 git clone https://github.com/timsaya/openwrt-bandix package/openwrt-bandix

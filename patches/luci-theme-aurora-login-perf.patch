@@ -1,0 +1,33 @@
+diff --git a/ucode/template/themes/aurora/sysauth.ut b/ucode/template/themes/aurora/sysauth.ut
+index 25a8f5f..4f7e8a0 100644
+--- a/ucode/template/themes/aurora/sysauth.ut
++++ b/ucode/template/themes/aurora/sysauth.ut
+@@ -9,6 +9,28 @@
+ {%const boardinfo = ubus.call('system', 'board');-%}
+ {% include('header', { blank_page: true }) %}
+ 
++<style>
++	.login-screen .login-shell .login-card {
++		-webkit-backdrop-filter: none !important;
++		backdrop-filter: none !important;
++		contain: layout paint;
++	}
++
++	.login-screen .login-input,
++	.login-screen .login-submit {
++		transition-property: border-color, box-shadow, background-color, color !important;
++		transition-duration: .12s !important;
++	}
++
++	@media (prefers-reduced-motion: reduce) {
++		.login-screen *,
++		.login-screen *::before,
++		.login-screen *::after {
++			transition: none !important;
++		}
++	}
++</style>
++
+ <div class="login-screen">
+ 	<div class="login-shell">
+ 		<form method="post" class="login-card">

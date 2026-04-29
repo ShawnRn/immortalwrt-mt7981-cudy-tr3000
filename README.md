@@ -61,7 +61,12 @@ The ShawnWrt images include first-boot defaults for the dorm/router profile:
 - LuCI Aurora theme/config
 - Bandix
 - TurboACC MTK
-- ttyd, UPnP, watchcat, DDNS, ksmbd, htop, jq and other daily admin tools
+- LuCI on Nginx/uWSGI for both TR3000 512MB and 360T7
+- UPnP, watchcat, DDNS, ksmbd, htop, jq and other daily admin tools
+
+`ttyd`, `luci-app-ttyd`, and `luci-app-diskman` are intentionally excluded.
+SSH covers terminal access, and removing DiskMan avoids a slow optional compile
+path that is not important for this router profile.
 
 ## OTA
 
@@ -70,6 +75,7 @@ ShawnWrt includes a small OTA helper and LuCI page:
 - CLI: `shawnwrt-ota`
 - LuCI: **System -> ShawnWrt OTA**
 - Standalone OTA package repo: <https://github.com/ShawnRn/shawnwrt-ota>
+- Built-in opkg feed: `src/gz shawnwrt_ota https://shawnrn.github.io/shawnwrt-ota`
 
 The OTA helper:
 

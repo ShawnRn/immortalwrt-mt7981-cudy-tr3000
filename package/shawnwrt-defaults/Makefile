@@ -26,6 +26,9 @@ define Package/shawnwrt-defaults/install
 	$(INSTALL_DIR) $(1)/etc/uci-defaults
 	$(INSTALL_BIN) ./files/etc/uci-defaults/99-shawnwrt-defaults \
 		$(1)/etc/uci-defaults/99-shawnwrt-defaults
+	$(INSTALL_DIR) $(1)/etc/opkg/keys
+	$(INSTALL_DATA) ./files/etc/opkg/keys/9143bef47f03c381 \
+		$(1)/etc/opkg/keys/9143bef47f03c381
 endef
 
 $(eval $(call BuildPackage,shawnwrt-defaults))
