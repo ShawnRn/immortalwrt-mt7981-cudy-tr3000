@@ -1,4 +1,4 @@
-name: ImmortalWrt Builder
+name: ShawnWrt Firmware Builder
 
 permissions:
   contents: write
@@ -7,7 +7,7 @@ on:
   repository_dispatch:
     types: [ "Source Code Update" ]
   schedule:
-    # Weekly ShawnWrt build: Monday 04:00 Asia/Shanghai.
+    # Weekly ShawnWrt build by Shawn Rain: Monday 04:00 Asia/Shanghai.
     - cron: '0 20 * * 0'
   workflow_dispatch:
     inputs:
@@ -278,9 +278,11 @@ jobs:
           echo "release_tag=$RELEASE_TAG" >> $GITHUB_OUTPUT
 
           cat > release.txt << EOF
-          ## 📦 ImmortalWrt Firmware Release
+          ## 📦 ShawnWrt Firmware Release
 
           **🏷️ Release:** $RELEASE_TAG
+          **👤 Maintainer:** Shawn Rain
+          **🧭 Project:** ShawnWrt
           **🌿 Branch:** $REPO_BRANCH
           **📱 Device:** ${DEVICE_INPUT}
           **📅 Build Date:** $(date +"%Y-%m-%d %H:%M:%S")
@@ -288,11 +290,18 @@ jobs:
 
           ## 📥 Download
 
-          Download the firmware files from the assets below.
+          Download the sysupgrade image matching your device:
+
+          - Cudy TR3000 512MB v1: asset name contains \`cudy_tr3000-512mb-v1\`
+          - Qihoo 360T7: asset name contains \`qihoo_360t7\`
+
+          ## 🔁 OTA
+
+          ShawnWrt images include \`shawnwrt-ota\` and the LuCI page \`System -> ShawnWrt OTA\`.
 
           ---
 
-          Built with ❤️ using [GitHub Actions](https://github.com/features/actions)
+          Built by **Shawn Rain** for **ShawnWrt** using [GitHub Actions](https://github.com/features/actions).
           EOF
 
           echo "status=success" >> $GITHUB_OUTPUT

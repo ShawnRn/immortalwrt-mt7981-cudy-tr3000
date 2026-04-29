@@ -10,6 +10,7 @@ define Package/shawnwrt-defaults
   SECTION:=base
   CATEGORY:=Base system
   TITLE:=Default LAN, hostname and WLAN settings for ShawnWrt
+  MAINTAINER:=Shawn Rain
   DEPENDS:=+uci
   PKGARCH:=all
 endef

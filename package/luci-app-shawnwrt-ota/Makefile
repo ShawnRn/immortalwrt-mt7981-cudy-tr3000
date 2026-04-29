@@ -7,6 +7,7 @@ PKG_RELEASE:=1
 LUCI_TITLE:=LuCI support for ShawnWrt OTA
 LUCI_DEPENDS:=+shawnwrt-ota
 LUCI_PKGARCH:=all
+PKG_MAINTAINER:=Shawn Rain
 
 include $(TOPDIR)/feeds/luci/luci.mk
 

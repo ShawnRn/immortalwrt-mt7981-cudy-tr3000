@@ -1,125 +1,144 @@
-[定制教程](https://xiabee.eu.org/customize.html) | [刷写教程](https://xiabee.eu.org/install.html)
+# ShawnWrt Firmware Builder
 
-<div align=center>
-<img src="tr3000.png" height=200px align="center">
-</div>
+ShawnWrt is a personal ImmortalWrt firmware build project maintained by **Shawn Rain**.
 
----
+It currently targets:
 
-## immortalwrt 源码
+- **Cudy TR3000 512MB v1** with the SN2544/new-flash 512MiB NAND layout and `mod-490m` U-Boot partition strategy.
+- **Qihoo 360T7** with its original stock layout.
 
-编译自 https://github.com/padavanonly/immortalwrt-mt798x-6.6 ，兼容 Cudy Tr3000 128M 新 flash
+The firmware is built automatically with GitHub Actions from:
 
----
+- ImmortalWrt source: <https://github.com/padavanonly/immortalwrt-mt798x-6.6>
+- Branch: `openwrt-24.10-6.6`
 
-## 大分区 ubootmod 固件
+## Build Profiles
 
-本仓库默认编译的 ubootmod 固件为 112M 分区，若你想编译 122M 分区固件，请将 `diy-part2.sh` 中取消以下注释：
+Use the **ShawnWrt Firmware Builder** workflow.
 
-```sh
-# set ubi to 122M
-# sed -i 's/reg = <0x5c0000 0x7000000>;/reg = <0x5c0000 0x7a40000>;/' target/linux/mediatek/dts/mt7981b-cudy-tr3000-v1-ubootmod.dts
+Recommended profile:
+
+```text
+Device: ShawnRouters
 ```
 
----
+`ShawnRouters` builds both daily-use targets:
 
-## DHCP uboot
+| Workflow option | Device | Output image keyword |
+|---|---|---|
+| `512M-Mod490` | Cudy TR3000 512MB v1 | `cudy_tr3000-512mb-v1` |
+| `360T7-Stock` | Qihoo 360T7 | `qihoo_360t7` |
 
-编译自 https://github.com/weekdaycare/bl-mt798x-dhcpd 感谢大佬开源，兼容新 flash
+The weekly scheduled build runs every Monday at 04:00 Asia/Shanghai. The update checker runs shortly after and only triggers a build when the upstream ImmortalWrt source changes.
 
-![](/uboot.png)
+## TR3000 512MB Layout
 
-128M uboot 为三分区 uboot 支持原厂 ubi 大小 64MB，扩容 ubi 分区 112MB，最大 ubi 分区 122MB
+The current Cudy TR3000 unit uses the SN2544/new-flash 512MiB NAND layout:
 
-256M uboot 为单分区 uboot
+| MTD | Name | Size |
+|---|---|---|
+| `mtd0` | `BL2` | `0x00100000` |
+| `mtd1` | `u-boot-env` | `0x00080000` |
+| `mtd2` | `Factory` | `0x00200000` |
+| `mtd3` | `bdinfo` | `0x00040000` |
+| `mtd4` | `FIP` | `0x00200000` |
+| `mtd5` | `ubi` | starts at `0x5c0000` |
 
----
+For this unit, ShawnWrt favors the fixed-parts multi-layout U-Boot flow. The matching U-Boot WebUI layout is `mod-490m`, with `501760k(ubi)`.
 
-## USB 供电控制
+Do not reuse another router's `Factory` or `bdinfo` backup on this device.
 
-上游的最新源码已经打开了默认供电，具体可以见这条 [commit](https://github.com/padavanonly/immortalwrt-mt798x-6.6/commit/86356f8a2f796e5808fda25ce3e3bf6b3cc3278e)
+## Included Defaults
 
-若你想关闭 USB 供电执行命令
+The ShawnWrt images include first-boot defaults for the dorm/router profile:
 
-```bash
+- Hostname: `ShawnWrt`
+- LAN IP: `192.168.10.1`
+- LAN domain: `shawnwrt.lan`
+- Wi-Fi SSID: `Everyday is Holiday.`
+- OpenClash
+- MiniEAP GDUFS packages
+- LuCI Aurora theme/config
+- Bandix
+- TurboACC MTK
+- ttyd, UPnP, watchcat, DDNS, ksmbd, htop, jq and other daily admin tools
+
+## OTA
+
+ShawnWrt includes a small OTA helper and LuCI page:
+
+- CLI: `shawnwrt-ota`
+- LuCI: **System -> ShawnWrt OTA**
+- Standalone OTA package repo: <https://github.com/ShawnRn/shawnwrt-ota>
+
+The OTA helper:
+
+- Detects the local board.
+- Finds the matching sysupgrade image from this repo's latest GitHub Release.
+- Verifies the GitHub SHA256 digest.
+- Runs `sysupgrade -T` before installation.
+- Records the installed release tag so the LuCI page can clearly show `Already up to date` or `Update available`.
+
+Useful commands:
+
+```sh
+shawnwrt-ota status
+shawnwrt-ota test
+shawnwrt-ota install
+```
+
+`install` preserves configuration and reboots the router.
+
+## Release Assets
+
+Release assets are sysupgrade images. Pick the file by device keyword:
+
+| Device | File contains |
+|---|---|
+| Cudy TR3000 512MB v1 | `cudy_tr3000-512mb-v1` |
+| Qihoo 360T7 | `qihoo_360t7` |
+
+## U-Boot
+
+The U-Boot workflow is kept for reference and recovery-oriented builds. It builds from:
+
+<https://github.com/weekdaycare/bl-mt798x-dhcpd>
+
+For ShawnWrt TR3000 512MB daily use, keep firmware and U-Boot partition expectations aligned. Mixing unrelated U-Boot/FIP layouts and sysupgrade images is the main brick risk.
+
+## USB Power Control
+
+The upstream source enables USB power by default. Reference commit:
+
+<https://github.com/padavanonly/immortalwrt-mt798x-6.6/commit/86356f8a2f796e5808fda25ce3e3bf6b3cc3278e>
+
+Disable USB power:
+
+```sh
 echo 0 > /sys/class/gpio/modem_power/value
 ```
 
-恢复供电执行命令
+Enable USB power:
 
-```bash
+```sh
 echo 1 > /sys/class/gpio/modem_power/value
 ```
 
----
-
-## 第三方软件包
-
-- [OpenClash](https://github.com/vernesong/OpenClash)
-- [Bandix](https://github.com/timsaya/luci-app-bandix)
-- [luci-theme-aurora](https://github.com/eamonxg/luci-theme-aurora)
-- [luci-app-aurora-config](https://github.com/eamonxg/luci-app-aurora-config)
-- luci-app-ttyd
-- luci-app-upnp
-- kmod-usb-net-cdc-ether
-- kmod-usb-net-rndis
-- kmod-mtd-rw
-
----
-
-## SSH 连接 Action
-
-可以通过 ssh 连接到 Action 工作流来配置 `menuconfig` 。
-
----
-
-## 编译注意事项
-
-GitHub Actions 存储有限，大型软件包（如 sing-box 或 alist）建议使用预编译方式，而不是源码编译，即在编译过程中加入已经编译好现成软件包。否则你应该会碰到超长编译时间 + 超出 Action 储存。示例：
-
-```sh
-# 创建存储二进制文件的目录
-BIN_DIR="$GITHUB_WORKSPACE/openwrt/files/usr/bin"
-mkdir -p "$BIN_DIR"
-
-# -------- 下载并解压 xray-core ARM64 -------
-echo "Downloading xray-core..."
-curl -L -o xray.zip https://github.com/XTLS/Xray-core/releases/download/v25.10.15/Xray-linux-arm64-v8a.zip
-unzip -o xray.zip -d "$BIN_DIR"
-chmod +x "$BIN_DIR/xray"
-rm xray.zip
-
-# -------- 下载并解压 sing-box ARM64 -------
-echo "Downloading sing-box..."
-curl -L -o sing-box.tar.gz https://github.com/SagerNet/sing-box/releases/download/v1.12.12/sing-box-1.12.12-linux-arm64.tar.gz
-TMP_DIR=$(mktemp -d)
-tar -xzf sing-box.tar.gz -C "$TMP_DIR"
-mv "$TMP_DIR"/sing-box-1.12.12-linux-arm64/sing-box "$BIN_DIR"/sing-box
-chmod +x "$BIN_DIR/sing-box"
-rm -rf "$TMP_DIR"
-rm sing-box.tar.gz
-```
-
----
-
 ## Credits
 
-- [bl-mt798x-dhcpd](https://github.com/weekdaycare/bl-mt798x-dhcpd)
-- [bl-mt798x](https://github.com/hanwckf/bl-mt798x)
-- [immortalwrtwrt](https://github.com/padavanonly/immortalwrt-mt798x-6.6)
-- [P3TERX](https://github.com/P3TERX)
-- [Microsoft Azure](https://azure.microsoft.com)
-- [GitHub Actions](https://github.com/features/actions)
-- [OpenWrt](https://github.com/openwrt/openwrt)
-- [coolsnowwolf/lede](https://github.com/coolsnowwolf/lede)
-- [Mikubill/transfer](https://github.com/Mikubill/transfer)
-- [softprops/action-gh-release](https://github.com/softprops/action-gh-release)
-- [Mattraks/delete-workflow-runs](https://github.com/Mattraks/delete-workflow-runs)
-- [dev-drprasad/delete-older-releases](https://github.com/dev-drprasad/delete-older-releases)
-- [peter-evans/repository-dispatch](https://github.com/peter-evans/repository-dispatch)
+Maintained by **Shawn Rain** as the ShawnWrt firmware builder.
 
----
+Based on and/or using work from:
+
+- [padavanonly/immortalwrt-mt798x-6.6](https://github.com/padavanonly/immortalwrt-mt798x-6.6)
+- [weekdaycare/immortalwrt-mt7981-cudy-tr3000](https://github.com/weekdaycare/immortalwrt-mt7981-cudy-tr3000)
+- [weekdaycare/bl-mt798x-dhcpd](https://github.com/weekdaycare/bl-mt798x-dhcpd)
+- [hanwckf/bl-mt798x](https://github.com/hanwckf/bl-mt798x)
+- [P3TERX/Actions-OpenWrt](https://github.com/P3TERX/Actions-OpenWrt)
+- [OpenWrt](https://github.com/openwrt/openwrt)
+- [ImmortalWrt](https://github.com/immortalwrt/immortalwrt)
+- [GitHub Actions](https://github.com/features/actions)
 
 ## License
 
-[MIT](https://github.com/P3TERX/Actions-OpenWrt/blob/main/LICENSE) © [**P3TERX**](https://p3terx.com)
+This repository keeps the upstream MIT-style GitHub Actions/OpenWrt build workflow lineage and project credits. ShawnWrt customizations are maintained by **Shawn Rain**.

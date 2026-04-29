@@ -10,7 +10,7 @@
 # See /LICENSE for more information.
 #
 
-name: Update Checker
+name: ShawnWrt Update Checker
 
 env:
   REPO_URL: https://github.com/padavanonly/immortalwrt-mt798x-6.6
@@ -19,7 +19,7 @@ env:
 on:
   workflow_dispatch:
   schedule:
-    # Weekly upstream change check: Monday 04:20 Asia/Shanghai.
+    # Weekly ShawnWrt upstream change check: Monday 04:20 Asia/Shanghai.
     - cron: '20 20 * * 0'
 
 jobs:

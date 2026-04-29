@@ -1,4 +1,4 @@
-name: 798x-UBOOT
+name: ShawnWrt U-Boot Builder
 
 on:
   workflow_dispatch:
@@ -81,9 +81,11 @@ jobs:
 
           # 生成 release 信息
           cat > release.txt << EOF
-          ## 📦 Uboot Firmware Release
+          ## 📦 ShawnWrt U-Boot Release
 
           **🏷️ Release:** $RELEASE_TAG
+          **👤 Maintainer:** Shawn Rain
+          **🧭 Project:** ShawnWrt
           **📦 Repo:** $WRT_REPO
           **🌿 Branch:** $WRT_BRANCH
           **📱 ATF:** atf-20250711
@@ -97,11 +99,11 @@ jobs:
 
           ## 🚧 Notice
 
-          该固件为 DHCP uboot, 128M uboot 为三分区布局，支持原厂 ubi 大小 64MB，扩容 ubi 分区 112MB，最大 ubi 分区 122MB，256M uboot 为单分区布局。
+          该固件为 ShawnWrt 参考用 DHCP U-Boot 构建产物。刷写前请确认设备、Flash 容量和分区布局完全匹配。
 
           ---
 
-          Built with ❤️ using [GitHub Actions](https://github.com/features/actions)
+          Built by **Shawn Rain** for **ShawnWrt** using [GitHub Actions](https://github.com/features/actions).
           EOF
 
           echo "status=success" >> $GITHUB_OUTPUT

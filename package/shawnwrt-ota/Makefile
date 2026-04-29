@@ -10,6 +10,7 @@ define Package/shawnwrt-ota
   SECTION:=admin
   CATEGORY:=Administration
   TITLE:=ShawnWrt OTA updater
+  MAINTAINER:=Shawn Rain
   DEPENDS:=+curl +jsonfilter +libubus +busybox
   PKGARCH:=all
 endef
