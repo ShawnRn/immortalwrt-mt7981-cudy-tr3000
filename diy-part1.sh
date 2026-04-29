@@ -16,6 +16,9 @@
 # Add a feed source
 #echo 'src-git helloworld https://github.com/fw876/helloworld' >>feeds.conf.default
 #echo 'src-git passwall https://github.com/xiaorouji/openwrt-passwall' >>feeds.conf.default
+if ! grep -q '^src-git mosdns ' feeds.conf.default; then
+  sed -i '1isrc-git mosdns https://github.com/sbwml/luci-app-mosdns' feeds.conf.default
+fi
 
 # Copy custom local packages into OpenWrt tree so they are available during build
 for pkg in luci-compat-keep minieap-gdufs luci-proto-minieap luci-i18n-minieap-zh-cn shawnwrt-defaults shawnwrt-ota luci-app-shawnwrt-ota; do
@@ -31,4 +34,3 @@ patch -d package/luci-theme-aurora -p1 < "$GITHUB_WORKSPACE/patches/luci-theme-a
 git clone https://github.com/eamonxg/luci-app-aurora-config package/luci-app-aurora-config
 git clone https://github.com/timsaya/luci-app-bandix package/luci-app-bandix
 git clone https://github.com/timsaya/openwrt-bandix package/openwrt-bandix
-git clone --depth 1 -b v5 https://github.com/sbwml/luci-app-mosdns package/luci-app-mosdns
