@@ -1,7 +1,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=luci-app-shawnwrt-ota
-PKG_VERSION:=1.0.1
+PKG_VERSION:=1.0.2
 PKG_RELEASE:=r1
 
 LUCI_TITLE:=LuCI support for ShawnWrt OTA

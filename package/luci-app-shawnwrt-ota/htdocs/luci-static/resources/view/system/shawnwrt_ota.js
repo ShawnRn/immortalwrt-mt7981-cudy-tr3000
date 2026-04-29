@@ -221,12 +221,13 @@ return view.extend({
 		return E('div', { 'class': 'cbi-map shawnwrt-ota' }, [
 			E('style', {}, [`
 				.shawnwrt-ota {
-					--swrt-surface: var(--background-color-high, #fff);
-					--swrt-surface-muted: rgba(0,0,0,.035);
-					--swrt-border: rgba(0,0,0,.10);
-					--swrt-border-soft: rgba(0,0,0,.08);
-					--swrt-text: var(--text-color, #222);
-					--swrt-text-muted: var(--text-color-medium, #666);
+					--swrt-map-bg: var(--panel-bg, var(--background-color-high, #fff));
+					--swrt-surface: var(--panel-bg, var(--background-color-high, #fff));
+					--swrt-surface-muted: var(--secondary, rgba(0,0,0,.035));
+					--swrt-border: var(--border, rgba(0,0,0,.10));
+					--swrt-border-soft: color-mix(in srgb, var(--swrt-border), transparent 35%);
+					--swrt-text: var(--foreground, var(--text-color, #222));
+					--swrt-text-muted: var(--muted-foreground, var(--text-color-medium, #666));
 					--swrt-current-bg: rgba(46, 160, 67, .12);
 					--swrt-current-border: rgba(46, 160, 67, .30);
 					--swrt-update-bg: rgba(217, 119, 6, .14);
@@ -235,8 +236,10 @@ return view.extend({
 					--swrt-unknown-border: rgba(59, 130, 246, .30);
 					color: var(--swrt-text);
 				}
+				.shawnwrt-ota.cbi-map { background: var(--swrt-map-bg); border-color: var(--swrt-border); color: var(--swrt-text); }
 				@media (prefers-color-scheme: dark) {
 					.shawnwrt-ota {
+						--swrt-map-bg: var(--panel-bg, #1d293d);
 						--swrt-surface: rgba(255,255,255,.06);
 						--swrt-surface-muted: rgba(255,255,255,.055);
 						--swrt-border: rgba(255,255,255,.14);
@@ -254,8 +257,10 @@ return view.extend({
 				html[data-theme="dark"] .shawnwrt-ota,
 				html[data-darkmode="true"] .shawnwrt-ota,
 				body[data-theme="dark"] .shawnwrt-ota,
+				body[data-darkmode="true"] .shawnwrt-ota,
 				body.dark .shawnwrt-ota,
 				.dark .shawnwrt-ota {
+					--swrt-map-bg: var(--panel-bg, #1d293d);
 					--swrt-surface: rgba(255,255,255,.06);
 					--swrt-surface-muted: rgba(255,255,255,.055);
 					--swrt-border: rgba(255,255,255,.14);
