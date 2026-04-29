@@ -18,21 +18,24 @@
 #echo 'src-git passwall https://github.com/xiaorouji/openwrt-passwall' >>feeds.conf.default
 
 # MosDNS upstream is a full OpenWrt feed. Do not clone it under package/.
-# Keep it after the main packages feed so ImmortalWrt's Go-1.23-compatible
-# mosdns package wins, while this feed still provides LuCI and v2dat.
+# Current mosdns requires Go 1.24+, so use sbwml's matching golang feed
+# before the standard packages feed and let the mosdns feed own the core too.
 rm -rf package/luci-app-mosdns
-if ! grep -q '^src-git mosdns ' feeds.conf.default; then
-  awk '
-    { print }
-    /^src-git packages / && !added {
+awk '
+  /^src-git golang / || /^src-git mosdns / { next }
+  /^src-git packages / && !added {
+    print "src-git golang https://github.com/sbwml/packages_lang_golang.git;24.x"
+    print "src-git mosdns https://github.com/sbwml/luci-app-mosdns;v5"
+    added = 1
+  }
+  { print }
+  END {
+    if (!added) {
+      print "src-git golang https://github.com/sbwml/packages_lang_golang.git;24.x"
       print "src-git mosdns https://github.com/sbwml/luci-app-mosdns;v5"
-      added = 1
     }
-    END {
-      if (!added) print "src-git mosdns https://github.com/sbwml/luci-app-mosdns;v5"
-    }
-  ' feeds.conf.default > feeds.conf.default.tmp && mv feeds.conf.default.tmp feeds.conf.default
-fi
+  }
+' feeds.conf.default > feeds.conf.default.tmp && mv feeds.conf.default.tmp feeds.conf.default
 
 # Copy custom local packages into OpenWrt tree so they are available during build
 for pkg in luci-compat-keep minieap-gdufs luci-proto-minieap luci-i18n-minieap-zh-cn shawnwrt-defaults shawnwrt-ota luci-app-shawnwrt-ota; do
