@@ -100,9 +100,9 @@ Release assets are sysupgrade images. Pick the file by device keyword:
 
 ## U-Boot
 
-The U-Boot workflow is kept for reference and recovery-oriented builds. It builds from:
+The U-Boot workflow is integrated into this firmware builder and builds from Shawn Rain's U-Boot repo:
 
-<https://github.com/weekdaycare/bl-mt798x-dhcpd>
+<https://github.com/ShawnRn/bl-mt798x-dhcpd>
 
 For ShawnWrt TR3000 512MB daily use, keep firmware and U-Boot partition expectations aligned. Mixing unrelated U-Boot/FIP layouts and sysupgrade images is the main brick risk.
 
@@ -131,6 +131,7 @@ Maintained by **Shawn Rain** as the ShawnWrt firmware builder.
 Based on and/or using work from:
 
 - [padavanonly/immortalwrt-mt798x-6.6](https://github.com/padavanonly/immortalwrt-mt798x-6.6)
+- [ShawnRn/bl-mt798x-dhcpd](https://github.com/ShawnRn/bl-mt798x-dhcpd)
 - [weekdaycare/immortalwrt-mt7981-cudy-tr3000](https://github.com/weekdaycare/immortalwrt-mt7981-cudy-tr3000)
 - [weekdaycare/bl-mt798x-dhcpd](https://github.com/weekdaycare/bl-mt798x-dhcpd)
 - [hanwckf/bl-mt798x](https://github.com/hanwckf/bl-mt798x)

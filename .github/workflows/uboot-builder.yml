@@ -16,7 +16,7 @@ on:
 
 env:
   GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
-  WRT_REPO: https://github.com/weekdaycare/bl-mt798x-dhcpd
+  WRT_REPO: https://github.com/ShawnRn/bl-mt798x-dhcpd
   WRT_BRANCH: ${{ github.event.inputs.branch }}
   PRERELEASE: ${{ github.event.inputs.prerelease }}
 
@@ -90,7 +90,7 @@ jobs:
           **🌿 Branch:** $WRT_BRANCH
           **📱 ATF:** atf-20250711
           **📱 MTK:** uboot-mtk-20250711
-          **📱 Device:** cudy_tr3000 128M/256M
+          **📱 Device:** Cudy TR3000 / ShawnWrt U-Boot profiles
           **📅 Build Date:** $BUILD_TIME
 
           ## 📥 Download
@@ -99,7 +99,7 @@ jobs:
 
           ## 🚧 Notice
 
-          该固件为 ShawnWrt 参考用 DHCP U-Boot 构建产物。刷写前请确认设备、Flash 容量和分区布局完全匹配。
+          该固件为 ShawnWrt 参考用 DHCP U-Boot 构建产物，源码来自 Shawn Rain 维护的 U-Boot 仓库。刷写前请确认设备、Flash 容量和分区布局完全匹配。
 
           ---
 
