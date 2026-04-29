@@ -1,0 +1,13 @@
+{
+	"admin/system/shawnwrt-ota": {
+		"title": "ShawnWrt OTA",
+		"order": 65,
+		"action": {
+			"type": "view",
+			"path": "system/shawnwrt_ota"
+		},
+		"depends": {
+			"acl": [ "luci-app-shawnwrt-ota" ]
+		}
+	}
+}

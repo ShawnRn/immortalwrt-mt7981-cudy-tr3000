@@ -1,0 +1,21 @@
+{
+	"luci-app-shawnwrt-ota": {
+		"description": "Grant access to ShawnWrt OTA actions",
+		"read": {
+			"ubus": {
+				"file": [ "exec" ]
+			},
+			"file": {
+				"/usr/bin/shawnwrt-ota": [ "exec" ]
+			}
+		},
+		"write": {
+			"ubus": {
+				"file": [ "exec" ]
+			},
+			"file": {
+				"/usr/bin/shawnwrt-ota": [ "exec" ]
+			}
+		}
+	}
+}
