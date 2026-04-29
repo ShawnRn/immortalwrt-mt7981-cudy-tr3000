@@ -53,3 +53,30 @@ msgstr "路由器将下载、校验、测试并安装匹配的 sysupgrade 固件
 
 msgid "Output"
 msgstr "执行输出"
+
+msgid "Already up to date"
+msgstr "已是最新版本"
+
+msgid "This router is already running the latest release. No action is needed."
+msgstr "当前系统已经安装最新发布版本，无需操作。"
+
+msgid "Update available"
+msgstr "发现新版本"
+
+msgid "Run the upgrade test first, then install. Configuration will be preserved and the router will reboot."
+msgstr "可以先测试升级，确认通过后再安装。安装会保留配置并重启路由器。"
+
+msgid "Current version unknown"
+msgstr "无法判断当前版本"
+
+msgid "This can happen before the OTA helper has recorded an installed release. If you just flashed the latest image manually, mark it as installed."
+msgstr "这是旧版 OTA 首次记录前的状态。若你刚刚手动刷入了最新固件，可以点击“标记为已安装”。"
+
+msgid "Installed release"
+msgstr "当前已安装"
+
+msgid "Automatically checks whether this router is current. Download, verify, and install only when an update is available."
+msgstr "自动判断当前系统是否已是最新版本。有更新时再下载、校验并安装。"
+
+msgid "Mark installed"
+msgstr "标记为已安装"

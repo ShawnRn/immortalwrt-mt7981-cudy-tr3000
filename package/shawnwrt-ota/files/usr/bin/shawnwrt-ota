@@ -8,6 +8,7 @@ API_BASE="${SHAWNWRT_OTA_API_BASE:-https://api.github.com}"
 DOWNLOAD_DIR="${SHAWNWRT_OTA_DOWNLOAD_DIR:-/tmp/shawnwrt-ota}"
 KEEP_PACKAGES="${SHAWNWRT_OTA_KEEP_PACKAGES:-1}"
 FORCE="${SHAWNWRT_OTA_FORCE:-0}"
+STATE_CONFIG="shawnwrt_ota"
 
 usage() {
 	cat <<'EOF'
@@ -15,9 +16,11 @@ Usage: shawnwrt-ota <command>
 
 Commands:
   check       Show latest matching firmware without downloading
+  status      Show installed and latest firmware state
   download    Download and verify the latest matching firmware
   test        Download, verify, and run sysupgrade --test
   install     Download, verify, test, then run sysupgrade preserving config
+  mark-installed [tag]  Record current or given release tag as installed
   board       Print detected ShawnWrt OTA board id
   help        Show this help
 
@@ -134,6 +137,58 @@ info_value() {
 	printf '%s\n' "$1" | sed -n "s/^$2=//p" | head -n 1
 }
 
+uci_get() {
+	uci -q get "$1" 2>/dev/null || true
+}
+
+record_installed() {
+	local info tag asset digest date
+	info="${1:-$(latest_info)}"
+	tag="$(info_value "$info" TAG)"
+	asset="$(info_value "$info" ASSET)"
+	digest="$(info_value "$info" DIGEST)"
+	date="$(date '+%Y-%m-%d %H:%M:%S %z')"
+
+	[ -n "$tag" ] || die "cannot record installed release without tag"
+
+	touch "/etc/config/${STATE_CONFIG}"
+	uci -q batch <<EOF
+set ${STATE_CONFIG}.state=state
+set ${STATE_CONFIG}.state.installed_tag='${tag}'
+set ${STATE_CONFIG}.state.installed_asset='${asset}'
+set ${STATE_CONFIG}.state.installed_digest='${digest}'
+set ${STATE_CONFIG}.state.installed_at='${date}'
+commit ${STATE_CONFIG}
+EOF
+}
+
+status_info() {
+	local info latest_tag installed_tag installed_asset installed_digest installed_at state
+	info="$(latest_info)"
+	latest_tag="$(info_value "$info" TAG)"
+	installed_tag="$(uci_get "${STATE_CONFIG}.state.installed_tag")"
+	installed_asset="$(uci_get "${STATE_CONFIG}.state.installed_asset")"
+	installed_digest="$(uci_get "${STATE_CONFIG}.state.installed_digest")"
+	installed_at="$(uci_get "${STATE_CONFIG}.state.installed_at")"
+
+	if [ -z "$installed_tag" ]; then
+		state="unknown"
+	elif [ "$installed_tag" = "$latest_tag" ]; then
+		state="current"
+	else
+		state="update"
+	fi
+
+	cat <<EOF
+STATE=$state
+INSTALLED_TAG=$installed_tag
+INSTALLED_ASSET=$installed_asset
+INSTALLED_DIGEST=$installed_digest
+INSTALLED_AT=$installed_at
+$info
+EOF
+}
+
 download_firmware() {
 	local info url name digest want got out
 	info="$(latest_info)"
@@ -182,11 +237,13 @@ test_firmware() {
 }
 
 install_firmware() {
-	local out args
+	local out args info
 	out="$(test_firmware | firmware_path_from_download_output)"
+	info="$(latest_info)"
 	args=""
 	[ "$KEEP_PACKAGES" = "1" ] && args="$args -k"
 	needs_force_upgrade && args="$args -F"
+	record_installed "$info"
 	echo "Installing $out"
 	# shellcheck disable=SC2086
 	exec sysupgrade $args "$out"
@@ -200,6 +257,9 @@ main() {
 		check)
 			latest_info
 			;;
+		status)
+			status_info
+			;;
 		download)
 			download_firmware
 			;;
@@ -208,6 +268,17 @@ main() {
 			;;
 		install)
 			install_firmware
+			;;
+		mark-installed)
+			if [ -n "${2:-}" ]; then
+				info="$(latest_info)"
+				latest_tag="$(info_value "$info" TAG)"
+				[ "$2" = "$latest_tag" ] || die "tag $2 is not the current latest release ($latest_tag)"
+				record_installed "$info"
+			else
+				record_installed "$(latest_info)"
+			fi
+			status_info
 			;;
 		help|-h|--help)
 			usage

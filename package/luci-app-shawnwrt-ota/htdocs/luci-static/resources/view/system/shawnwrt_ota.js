@@ -7,7 +7,14 @@ var zh = (document.documentElement.getAttribute('lang') || navigator.language ||
 
 var L = {
 	title: zh ? 'ShawnWrt 在线升级' : _('ShawnWrt OTA'),
-	subtitle: zh ? '自动匹配当前设备的 sysupgrade 固件，下载后校验 SHA256，并在安装前执行升级测试。' : _('Automatically matches the sysupgrade image for this router, verifies SHA256, and tests it before installation.'),
+	subtitle: zh ? '自动判断当前系统是否已是最新版本。有更新时再下载、校验并安装。' : _('Automatically checks whether this router is current. Download, verify, and install only when an update is available.'),
+	currentTitle: zh ? '已是最新版本' : _('Already up to date'),
+	currentText: zh ? '当前系统已经安装最新发布版本，无需操作。' : _('This router is already running the latest release. No action is needed.'),
+	updateTitle: zh ? '发现新版本' : _('Update available'),
+	updateText: zh ? '可以先测试升级，确认通过后再安装。安装会保留配置并重启路由器。' : _('Run the upgrade test first, then install. Configuration will be preserved and the router will reboot.'),
+	unknownTitle: zh ? '无法判断当前版本' : _('Current version unknown'),
+	unknownText: zh ? '这是旧版 OTA 首次记录前的状态。若你刚刚手动刷入了最新固件，可以点击“标记为已安装”。' : _('This can happen before the OTA helper has recorded an installed release. If you just flashed the latest image manually, mark it as installed.'),
+	installedRelease: zh ? '当前已安装' : _('Installed release'),
 	detectedBoard: zh ? '设备目标' : _('Detected board'),
 	latestRelease: zh ? '最新版本' : _('Latest release'),
 	firmwareImage: zh ? '固件文件' : _('Firmware image'),
@@ -21,6 +28,7 @@ var L = {
 	test: zh ? '测试升级' : _('Test upgrade'),
 	download: zh ? '下载固件' : _('Download'),
 	install: zh ? '安装更新' : _('Install update'),
+	markInstalled: zh ? '标记为已安装' : _('Mark installed'),
 	cancel: zh ? '取消' : _('Cancel'),
 	confirmTitle: zh ? '安装更新' : _('Install update'),
 	confirmBody: zh ? '路由器将下载、校验、测试并安装匹配的 sysupgrade 固件，现有配置会被保留。安装期间网络会中断。' : _('The router will download, verify, test, and install the matching sysupgrade image while preserving configuration. Network access will be interrupted during installation.'),
@@ -66,16 +74,17 @@ return view.extend({
 	load: function() {
 		return Promise.all([
 			runOta(['board']),
-			runOta(['check'])
+			runOta(['status'])
 		]);
 	},
 
 	render: function(data) {
 		var board = data[0];
-		var check = data[1];
-		var info = parseInfo(check.stdout);
+		var status = data[1];
+		var info = parseInfo(status.stdout);
+		var state = info.STATE || 'unknown';
 		var output = E('pre', { 'class': 'shawnwrt-ota-output' }, [
-			check.stdout || check.stderr || L.noInfo
+			status.stdout || status.stderr || L.noInfo
 		]);
 
 		function fileSize(bytes) {
@@ -100,6 +109,16 @@ return view.extend({
 			]);
 		}
 
+		function stateMeta() {
+			if (state === 'current')
+				return { cls: 'is-current', title: L.currentTitle, text: L.currentText };
+
+			if (state === 'update')
+				return { cls: 'has-update', title: L.updateTitle, text: L.updateText };
+
+			return { cls: 'is-unknown', title: L.unknownTitle, text: L.unknownText };
+		}
+
 		function setBusy(button, busy) {
 			button.disabled = busy;
 			button.classList.toggle('spinning', busy);
@@ -114,7 +133,7 @@ return view.extend({
 			if (result.stderr)
 				text += (text ? '\n\n' : '') + result.stderr.trim();
 
-			output.textContent = text || _('Done.');
+			output.textContent = text || L.done;
 
 			if (!result.ok)
 				ui.addNotification(null, E('p', L.failed), 'danger');
@@ -126,6 +145,15 @@ return view.extend({
 			return runOta(args).then(showResult).finally(function() {
 				setBusy(button, false);
 			});
+		}
+
+		function refreshStatus(result) {
+			showResult(result);
+			if (result.ok) {
+				var next = parseInfo(result.stdout);
+				location.reload();
+				return next;
+			}
 		}
 
 		var checkButton = E('button', {
@@ -144,8 +172,15 @@ return view.extend({
 			'class': 'btn cbi-button cbi-button-negative'
 		}, [L.install]);
 
+		var markButton = E('button', {
+			'class': 'btn cbi-button cbi-button-neutral'
+		}, [L.markInstalled]);
+
 		checkButton.addEventListener('click', function() {
-			return action(checkButton, ['check']);
+			setBusy(checkButton, true);
+			return runOta(['status']).then(refreshStatus).finally(function() {
+				setBusy(checkButton, false);
+			});
 		});
 
 		testButton.addEventListener('click', function() {
@@ -154,6 +189,13 @@ return view.extend({
 
 		downloadButton.addEventListener('click', function() {
 			return action(downloadButton, ['download']);
+		});
+
+		markButton.addEventListener('click', function() {
+			setBusy(markButton, true);
+			return runOta(['mark-installed']).then(refreshStatus).finally(function() {
+				setBusy(markButton, false);
+			});
 		});
 
 		installButton.addEventListener('click', function() {
@@ -180,6 +222,12 @@ return view.extend({
 			E('style', {}, [`
 				.shawnwrt-ota .cbi-map-descr { margin-bottom: 1.25rem; max-width: 780px; }
 				.shawnwrt-ota-panel { border: 1px solid var(--border-color-medium, #ddd); border-radius: 10px; padding: 1rem; background: var(--background-color-high, #fff); }
+				.shawnwrt-ota-state { border-radius: 10px; padding: 1rem; margin-bottom: 1rem; border: 1px solid rgba(0,0,0,.08); }
+				.shawnwrt-ota-state h3 { margin: 0 0 .3rem; font-size: 1.2rem; }
+				.shawnwrt-ota-state p { margin: 0; color: var(--text-color-medium, #666); }
+				.shawnwrt-ota-state.is-current { background: rgba(46, 160, 67, .10); border-color: rgba(46, 160, 67, .25); }
+				.shawnwrt-ota-state.has-update { background: rgba(217, 119, 6, .12); border-color: rgba(217, 119, 6, .28); }
+				.shawnwrt-ota-state.is-unknown { background: rgba(59, 130, 246, .10); border-color: rgba(59, 130, 246, .25); }
 				.shawnwrt-ota-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem 1rem; }
 				.shawnwrt-ota-row { min-width: 0; border-bottom: 1px solid rgba(0,0,0,.08); padding-bottom: .65rem; }
 				.shawnwrt-ota-row:nth-last-child(-n+2) { border-bottom: 0; padding-bottom: 0; }
@@ -195,7 +243,12 @@ return view.extend({
 			E('h2', L.title),
 			E('div', { 'class': 'cbi-map-descr' }, [L.subtitle]),
 			E('div', { 'class': 'shawnwrt-ota-panel' }, [
+				E('div', { 'class': 'shawnwrt-ota-state ' + stateMeta().cls }, [
+					E('h3', [stateMeta().title]),
+					E('p', [stateMeta().text])
+				]),
 				E('div', { 'class': 'shawnwrt-ota-grid' }, [
+					row(L.installedRelease, info.INSTALLED_TAG || L.unknown, false),
 					row(L.detectedBoard, board.stdout.trim() || board.stderr.trim(), true),
 					row(L.latestRelease, info.TAG, false),
 					row(L.firmwareImage, info.ASSET, true),
@@ -203,8 +256,12 @@ return view.extend({
 					row(L.sha256, digestValue(info.DIGEST), true)
 				]),
 				E('div', { 'class': 'shawnwrt-ota-actions' }, [
-					checkButton, testButton, downloadButton, installButton
-				]),
+					checkButton
+				].concat(state === 'update' ? [
+					testButton, downloadButton, installButton
+				] : []).concat(state === 'unknown' ? [
+					markButton
+				] : [])),
 				E('div', { 'class': 'shawnwrt-ota-output-wrap' }, [
 					E('div', { 'class': 'shawnwrt-ota-output-title' }, [L.statusTitle]),
 					output
