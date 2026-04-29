@@ -3,6 +3,10 @@ name: ShawnWrt Firmware Builder
 permissions:
   contents: write
 
+concurrency:
+  group: shawnwrt-firmware-${{ github.ref }}
+  cancel-in-progress: false
+
 on:
   repository_dispatch:
     types: [ "Source Code Update" ]
@@ -153,20 +157,28 @@ jobs:
         uses: actions/checkout@v4
 
       - name: 🪠 Free Disk Space
-        uses: jlumbroso/free-disk-space@main
-        with:
-          tool-cache: true
-          android: true
-          dotnet: true
-          haskell: true
-          large-packages: true
-          docker-images: true
-          swap-storage: true
+        run: |
+          echo "::group::Disk before cleanup"
+          df -hT
+          echo "::endgroup::"
+
+          sudo rm -rf \
+            /usr/share/dotnet \
+            /usr/local/lib/android \
+            /opt/ghc \
+            /opt/hostedtoolcache/CodeQL \
+            /usr/local/share/powershell || true
+          docker image prune -af >/dev/null 2>&1 || true
+          sudo swapoff -a || true
+
+          echo "::group::Disk after cleanup"
+          df -hT
+          echo "::endgroup::"
 
       - name: 🛠️ Init Environment
         run: |
           sudo -E apt-get -qq update
-          sudo -E apt-get -qq install ack antlr3 asciidoc autoconf automake autopoint binutils bison build-essential bzip2 ccache clang cmake cpio curl device-tree-compiler ecj fastjar flex gawk gettext gcc-multilib g++-multilib git gnutls-dev gperf haveged help2man intltool lib32gcc-s1 libc6-dev-i386 libelf-dev libglib2.0-dev libgmp3-dev libltdl-dev libmpc-dev libmpfr-dev libncurses-dev libpython3-dev libreadline-dev libssl-dev libtool libyaml-dev libz-dev lld llvm lrzsz mkisofs msmtp nano ninja-build p7zip p7zip-full patch pkgconf python3 python3-pip python3-ply python3-docutils python3-pyelftools qemu-utils re2c rsync scons squashfs-tools subversion swig texinfo uglifyjs upx-ucl unzip vim wget xmlto xxd zlib1g-dev zstd
+          sudo -E apt-get -qq install -y --no-install-recommends ack antlr3 asciidoc autoconf automake autopoint binutils bison build-essential bzip2 ccache clang cmake cpio curl device-tree-compiler ecj fastjar flex gawk gettext gcc-multilib g++-multilib git gnutls-dev gperf haveged help2man intltool lib32gcc-s1 libc6-dev-i386 libelf-dev libglib2.0-dev libgmp3-dev libltdl-dev libmpc-dev libmpfr-dev libncurses-dev libpython3-dev libreadline-dev libssl-dev libtool libyaml-dev libz-dev lld llvm mkisofs msmtp ninja-build p7zip p7zip-full patch pkgconf python3 python3-ply python3-docutils python3-pyelftools qemu-utils re2c rsync scons squashfs-tools subversion swig texinfo uglifyjs upx-ucl unzip wget xmlto xxd zlib1g-dev zstd
           sudo timedatectl set-timezone "$TZ"
           sudo mkdir -p /workdir
           sudo chown $USER:$GROUPS /workdir
@@ -180,15 +192,24 @@ jobs:
           fi
           ln -sf /workdir/openwrt $GITHUB_WORKSPACE/openwrt
 
-      - name: ⚙️ Setup ccache & DL cache
-        uses: actions/cache@v4
+      - name: 📦 Restore DL cache
+        id: dl-cache
+        uses: actions/cache/restore@v4
         with:
-          path: |
-            /workdir/.ccache
-            /workdir/openwrt/dl
-          key: ${{ runner.os }}-openwrt-combined-${{ env.REPO_BRANCH }}-${{ hashFiles('config/*.config') }}
+          path: /workdir/openwrt/dl
+          key: ${{ runner.os }}-openwrt-dl-${{ env.REPO_BRANCH }}-${{ github.run_id }}
           restore-keys: |
-            ${{ runner.os }}-openwrt-combined-${{ env.REPO_BRANCH }}-
+            ${{ runner.os }}-openwrt-dl-${{ env.REPO_BRANCH }}-
+
+      - name: 📦 Restore ccache
+        id: ccache-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: /workdir/.ccache
+          key: ${{ runner.os }}-openwrt-ccache-${{ env.REPO_BRANCH }}-${{ hashFiles('config/512muboot.config', 'config/360t7.config', 'diy-part1.sh', 'diy-part2.sh') }}-${{ github.run_id }}
+          restore-keys: |
+            ${{ runner.os }}-openwrt-ccache-${{ env.REPO_BRANCH }}-${{ hashFiles('config/512muboot.config', 'config/360t7.config', 'diy-part1.sh', 'diy-part2.sh') }}-
+            ${{ runner.os }}-openwrt-ccache-${{ env.REPO_BRANCH }}-
 
       - name: 🔧 Configure ccache
         run: |
@@ -211,6 +232,17 @@ jobs:
       - name: 🔨 Multi-Device Compilation Loop
         id: compile
         run: |
+          mark() {
+            echo "##[notice]$(date -u +'%Y-%m-%dT%H:%M:%SZ') $*"
+          }
+
+          elapsed() {
+            local start="$1"
+            local end
+            end=$(date +%s)
+            echo "$((end - start))"
+          }
+
           # 1. 确定编译列表
           if [ "${DEVICE_INPUT}" = "all" ]; then
             DEVICES="512M-Mod490 256M 128M 128M-Ubootmod"
@@ -221,11 +253,17 @@ jobs:
           fi
 
           mkdir -p $GITHUB_WORKSPACE/firmware_collection
+          BUILD_TIMING="$GITHUB_WORKSPACE/firmware_collection/build-timing.tsv"
+          echo -e "device\tdefconfig_s\tdownload_s\tcompile_s\ttotal_s" > "$BUILD_TIMING"
 
           cd /workdir/openwrt
+          NPROC=$(nproc)
+          mark "Build device list: $DEVICES"
+          ccache -s || true
 
           for DEV in $DEVICES; do
             echo "::group::🚀 Building $DEV"
+            DEV_START=$(date +%s)
             
             # 2. 设置当前设备配置文件
             case "$DEV" in
@@ -242,23 +280,39 @@ jobs:
             cp -f $GITHUB_WORKSPACE/$CONFIG .config
             
             # 4. 刷新配置并下载
+            mark "$DEV defconfig start"
+            STEP_START=$(date +%s)
             make defconfig
-            make download -j$(nproc)
+            DEFCONFIG_S=$(elapsed "$STEP_START")
+
+            mark "$DEV download start"
+            STEP_START=$(date +%s)
+            make download -j"$NPROC"
+            DOWNLOAD_S=$(elapsed "$STEP_START")
             
             # 5. 开始编译
             # 使用 ccache 加速，并保留 Toolchain
-            if ! make -j$(nproc) CC="ccache gcc" CXX="ccache g++"; then
+            mark "$DEV compile start"
+            STEP_START=$(date +%s)
+            if ! make -j"$NPROC" CC="ccache gcc" CXX="ccache g++"; then
               echo "⚠️ Multi-threaded failed, retrying single-threaded..."
+              mark "$DEV single-thread retry start"
               make -j1 V=s || exit 1
             fi
+            COMPILE_S=$(elapsed "$STEP_START")
+            TOTAL_S=$(elapsed "$DEV_START")
 
             echo "✅ $DEV build finished."
+            mark "$DEV compile done in ${COMPILE_S}s, total ${TOTAL_S}s"
+            echo -e "${DEV}\t${DEFCONFIG_S}\t${DOWNLOAD_S}\t${COMPILE_S}\t${TOTAL_S}" >> "$BUILD_TIMING"
+            ccache -s || true
             df -hT /workdir
             echo "::endgroup::"
           done
 
           echo "📥 Collecting artifacts"
           find bin/targets/ -name "*sysupgrade.bin" -exec cp {} $GITHUB_WORKSPACE/firmware_collection/ \;
+          cat "$BUILD_TIMING"
 
           echo "status=success" >> $GITHUB_OUTPUT
 
@@ -320,3 +374,17 @@ jobs:
         with:
           retain_days: 0
           keep_minimum_runs: 9
+
+      - name: 💾 Save DL cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: /workdir/openwrt/dl
+          key: ${{ runner.os }}-openwrt-dl-${{ env.REPO_BRANCH }}-${{ github.run_id }}
+
+      - name: 💾 Save ccache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: /workdir/.ccache
+          key: ${{ runner.os }}-openwrt-ccache-${{ env.REPO_BRANCH }}-${{ hashFiles('config/512muboot.config', 'config/360t7.config', 'diy-part1.sh', 'diy-part2.sh') }}-${{ github.run_id }}
