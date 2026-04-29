@@ -17,11 +17,21 @@
 #echo 'src-git helloworld https://github.com/fw876/helloworld' >>feeds.conf.default
 #echo 'src-git passwall https://github.com/xiaorouji/openwrt-passwall' >>feeds.conf.default
 
-# MosDNS upstream is a full OpenWrt feed. Do not clone it under package/,
-# otherwise the nested mosdns/v2dat packages are scanned without feed context.
+# MosDNS upstream is a full OpenWrt feed. Do not clone it under package/.
+# Keep it after the main packages feed so ImmortalWrt's Go-1.23-compatible
+# mosdns package wins, while this feed still provides LuCI and v2dat.
 rm -rf package/luci-app-mosdns
 if ! grep -q '^src-git mosdns ' feeds.conf.default; then
-  sed -i '1isrc-git mosdns https://github.com/sbwml/luci-app-mosdns;v5' feeds.conf.default
+  awk '
+    { print }
+    /^src-git packages / && !added {
+      print "src-git mosdns https://github.com/sbwml/luci-app-mosdns;v5"
+      added = 1
+    }
+    END {
+      if (!added) print "src-git mosdns https://github.com/sbwml/luci-app-mosdns;v5"
+    }
+  ' feeds.conf.default > feeds.conf.default.tmp && mv feeds.conf.default.tmp feeds.conf.default
 fi
 
 # Copy custom local packages into OpenWrt tree so they are available during build
