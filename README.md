@@ -61,12 +61,14 @@ The ShawnWrt images include first-boot defaults for the dorm/router profile:
 - LuCI Aurora theme/config
 - Bandix
 - TurboACC MTK
+- MosDNS with LuCI and zh-cn localization
 - LuCI on Nginx/uWSGI for both TR3000 512MB and 360T7
 - UPnP, watchcat, DDNS, ksmbd, htop, jq and other daily admin tools
 
-`ttyd`, `luci-app-ttyd`, and `luci-app-diskman` are intentionally excluded.
-SSH covers terminal access, and removing DiskMan avoids a slow optional compile
-path that is not important for this router profile.
+`SmartDNS`, `ttyd`, `luci-app-ttyd`, and `luci-app-diskman` are intentionally
+excluded. MosDNS is the default DNS policy UI, SSH covers terminal access, and
+removing DiskMan avoids a slow optional compile path that is not important for
+this router profile.
 
 ## OTA
 

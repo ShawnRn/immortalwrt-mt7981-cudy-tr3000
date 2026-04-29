@@ -2,7 +2,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=shawnwrt-ota
 PKG_VERSION:=1.0.1
-PKG_RELEASE:=1
+PKG_RELEASE:=r1
 
 include $(INCLUDE_DIR)/package.mk
 
