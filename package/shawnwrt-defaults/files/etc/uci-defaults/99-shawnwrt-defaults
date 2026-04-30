@@ -3,7 +3,7 @@
 LAN_IP="192.168.10.1"
 HOSTNAME="ShawnWrt"
 SSID="Everyday is Holiday."
-OTA_FEED="src/gz shawnwrt_ota https://cdn.jsdelivr.net/gh/ShawnRn/shawnwrt-ota@opkg"
+OTA_FEED="src/gz shawnwrt_ota https://gcore.jsdelivr.net/gh/ShawnRn/shawnwrt-ota@opkg"
 
 uci -q batch <<EOF
 set system.@system[0].hostname='${HOSTNAME}'

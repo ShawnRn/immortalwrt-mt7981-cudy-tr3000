@@ -138,6 +138,7 @@ return view.extend({
 		var status = data[1];
 		var info = parseInfo(status.stdout);
 		var state = info.STATE || 'unknown';
+		var boardName = board.stdout.trim() || board.stderr.trim();
 		var output = E('pre', { 'class': 'shawnwrt-ota-output' }, [
 			status.stdout || status.stderr || L.noInfo
 		]);
@@ -327,7 +328,9 @@ return view.extend({
 			showResult(result);
 			if (result.ok) {
 				var next = parseInfo(result.stdout);
-				location.reload();
+				info = next;
+				state = info.STATE || 'unknown';
+				renderSummary();
 				return next;
 			}
 		}
@@ -359,6 +362,48 @@ return view.extend({
 		}, ['?']);
 
 		helpButton.addEventListener('click', showHelp);
+
+		function summaryRows() {
+			return [
+				row(L.installedRelease, info.INSTALLED_TAG || L.unknown, false),
+				row(L.detectedBoard, boardName, true),
+				row(L.latestRelease, info.TAG, false),
+				row(L.firmwareImage, info.ASSET, true),
+				row(L.fileSize, fileSize(info.SIZE), false),
+				row(L.sha256, digestValue(info.DIGEST), true)
+			];
+		}
+
+		function actionButtons() {
+			var buttons = [checkButton];
+
+			if (state === 'update')
+				buttons = buttons.concat([testButton, downloadButton, installButton]);
+			else if (state === 'unknown')
+				buttons.push(markButton);
+
+			return buttons;
+		}
+
+		var meta = stateMeta();
+		var stateBox = E('div', { 'class': 'shawnwrt-ota-state ' + meta.cls }, [
+			E('h3', [meta.title]),
+			E('p', [meta.text])
+		]);
+		var stateTitle = stateBox.querySelector('h3');
+		var stateText = stateBox.querySelector('p');
+		var grid = E('div', { 'class': 'shawnwrt-ota-grid' }, summaryRows());
+		var actions = E('div', { 'class': 'shawnwrt-ota-actions' }, actionButtons());
+
+		function renderSummary() {
+			var nextMeta = stateMeta();
+
+			stateBox.className = 'shawnwrt-ota-state ' + nextMeta.cls;
+			stateTitle.textContent = nextMeta.title;
+			stateText.textContent = nextMeta.text;
+			grid.replaceChildren.apply(grid, summaryRows());
+			actions.replaceChildren.apply(actions, actionButtons());
+		}
 
 		checkButton.addEventListener('click', function() {
 			setBusy(checkButton, true);
@@ -636,25 +681,9 @@ return view.extend({
 			]),
 			E('div', { 'class': 'cbi-map-descr' }, [L.subtitle]),
 			E('div', { 'class': 'shawnwrt-ota-panel' }, [
-				E('div', { 'class': 'shawnwrt-ota-state ' + stateMeta().cls }, [
-					E('h3', [stateMeta().title]),
-					E('p', [stateMeta().text])
-				]),
-				E('div', { 'class': 'shawnwrt-ota-grid' }, [
-					row(L.installedRelease, info.INSTALLED_TAG || L.unknown, false),
-					row(L.detectedBoard, board.stdout.trim() || board.stderr.trim(), true),
-					row(L.latestRelease, info.TAG, false),
-					row(L.firmwareImage, info.ASSET, true),
-					row(L.fileSize, fileSize(info.SIZE), false),
-					row(L.sha256, digestValue(info.DIGEST), true)
-				]),
-				E('div', { 'class': 'shawnwrt-ota-actions' }, [
-					checkButton
-				].concat(state === 'update' ? [
-					testButton, downloadButton, installButton
-				] : []).concat(state === 'unknown' ? [
-					markButton
-				] : [])),
+				stateBox,
+				grid,
+				actions,
 				E('div', { 'class': 'shawnwrt-ota-output-wrap' }, [
 					E('div', { 'class': 'shawnwrt-ota-output-title' }, [L.statusTitle]),
 					output
