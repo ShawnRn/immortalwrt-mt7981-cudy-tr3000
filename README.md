@@ -6,7 +6,6 @@ It currently targets:
 
 - **Cudy TR3000 512MB v1** with the SN2544/new-flash 512MiB NAND layout and `mod-490m` U-Boot partition strategy.
 - **Qihoo 360T7** with its original stock layout.
-- Legacy Cudy TR3000 256MB, 128MB stock, and 128MB ubootmod layouts for reference builds.
 
 The firmware is built automatically with GitHub Actions from:
 
@@ -20,20 +19,17 @@ Use the **ShawnWrt Firmware Builder** workflow.
 Recommended profile:
 
 ```text
-Device: all
+Device: ShawnRouters
 ```
 
-`all` builds every maintained target:
+`ShawnRouters` builds both daily-use targets:
 
 | Workflow option | Device | Output image keyword |
 |---|---|---|
 | `512M-Mod490` | Cudy TR3000 512MB v1 | `cudy_tr3000-512mb-v1` |
 | `360T7-Stock` | Qihoo 360T7 | `qihoo_360t7` |
-| `256M` | Cudy TR3000 256MB layout | `cudy_tr3000` |
-| `128M` | Cudy TR3000 128MB stock layout | `cudy_tr3000` |
-| `128M-Ubootmod` | Cudy TR3000 128MB ubootmod layout | `cudy_tr3000` |
 
-The weekly scheduled build runs every Monday at 04:00 Asia/Shanghai and builds `all`. The update checker runs shortly after and triggers another `all` build only when the upstream ImmortalWrt source changes.
+The weekly scheduled build runs every Monday at 04:00 Asia/Shanghai and builds `ShawnRouters`. The update checker runs shortly after and triggers another `ShawnRouters` build only when the upstream ImmortalWrt source changes.
 
 ## TR3000 512MB Layout
 
@@ -108,7 +104,6 @@ Release assets are sysupgrade images. Pick the file by device keyword:
 |---|---|
 | Cudy TR3000 512MB v1 | `cudy_tr3000-512mb-v1` |
 | Qihoo 360T7 | `qihoo_360t7` |
-| Cudy TR3000 256MB / 128MB variants | `cudy_tr3000` |
 
 ## U-Boot
 

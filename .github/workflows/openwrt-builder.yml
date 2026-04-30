@@ -24,9 +24,6 @@ on:
           - '512M-Mod490'
           - '360T7-Stock'
           - 'ShawnRouters'
-          - '256M'
-          - '128M'
-          - '128M-Ubootmod'
           - 'all' 
       repo:
         description: '指定源码仓库地址'
@@ -55,7 +52,7 @@ on:
         default: false
 
 env:
-  DEVICE_INPUT: ${{ github.event.inputs.device || github.event.client_payload.device || 'all' }}
+  DEVICE_INPUT: ${{ github.event.inputs.device || github.event.client_payload.device || 'ShawnRouters' }}
   CCACHE_DIR: /workdir/.ccache
   CCACHE_MAXSIZE: 2G
   REPO_URL: ${{ github.event.inputs.repo || github.event.client_payload.repo || 'https://github.com/padavanonly/immortalwrt-mt798x-6.6' }}
@@ -93,11 +90,8 @@ jobs:
       - name: 🔧 Set device variables
         run: |
           case "$DEVICE_INPUT" in
-            "256M") echo "CONFIG_FILE=config/256m.config" >> $GITHUB_ENV ;;
             "512M-Mod490") echo "CONFIG_FILE=config/512muboot.config" >> $GITHUB_ENV ;;
             "360T7-Stock") echo "CONFIG_FILE=config/360t7.config" >> $GITHUB_ENV ;;
-            "128M") echo "CONFIG_FILE=config/128m.config" >> $GITHUB_ENV ;;
-            "128M-Ubootmod") echo "CONFIG_FILE=config/128muboot.config" >> $GITHUB_ENV ;;
           esac
 
       - name: 👩‍💻 Copy previous config if exists
@@ -245,7 +239,7 @@ jobs:
 
           # 1. 确定编译列表
           if [ "${DEVICE_INPUT}" = "all" ]; then
-            DEVICES="512M-Mod490 360T7-Stock 256M 128M 128M-Ubootmod"
+            DEVICES="512M-Mod490 360T7-Stock"
           elif [ "${DEVICE_INPUT}" = "ShawnRouters" ]; then
             DEVICES="512M-Mod490 360T7-Stock"
           else
@@ -269,9 +263,6 @@ jobs:
             case "$DEV" in
               "512M-Mod490") CONFIG="config/512muboot.config" ;;
               "360T7-Stock") CONFIG="config/360t7.config" ;;
-              "256M") CONFIG="config/256m.config" ;;
-              "128M") CONFIG="config/128m.config" ;;
-              "128M-Ubootmod") CONFIG="config/128muboot.config" ;;
             esac
             
             echo "Using Config: $CONFIG"
