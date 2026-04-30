@@ -226,12 +226,30 @@ firmware_path_from_download_output() {
 }
 
 test_firmware() {
-	local out args
+	local out args forced tmp rc
 	out="$(download_firmware | firmware_path_from_download_output)"
 	args=""
-	needs_force_upgrade && args="$args -F"
+	forced=0
+	if needs_force_upgrade; then
+		args="$args -F"
+		forced=1
+	fi
+
+	tmp="$(mktemp)"
 	# shellcheck disable=SC2086
-	sysupgrade -T $args "$out"
+	if sysupgrade -T $args "$out" >"$tmp" 2>&1; then
+		if [ "$forced" = "1" ]; then
+			echo "INFO_FORCE_TR3000=1"
+		else
+			cat "$tmp"
+		fi
+		rm -f "$tmp"
+	else
+		rc="$?"
+		cat "$tmp"
+		rm -f "$tmp"
+		return "$rc"
+	fi
 	echo "TEST=ok"
 	printf '%s\n' "$out"
 }
