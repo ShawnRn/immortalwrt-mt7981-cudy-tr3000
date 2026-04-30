@@ -27,6 +27,21 @@ if uci -q show wireless >/dev/null 2>&1; then
 	uci -q commit wireless
 fi
 
+if uci -q show nginx >/dev/null 2>&1; then
+	uci -q batch <<EOF
+delete nginx._redirect2ssl
+delete nginx._lan.listen
+add_list nginx._lan.listen='80 default_server'
+add_list nginx._lan.listen='[::]:80 default_server'
+delete nginx._lan.uci_manage_ssl
+delete nginx._lan.ssl_certificate
+delete nginx._lan.ssl_certificate_key
+delete nginx._lan.ssl_session_cache
+delete nginx._lan.ssl_session_timeout
+commit nginx
+EOF
+fi
+
 mkdir -p /etc/opkg
 touch /etc/opkg/customfeeds.conf
 grep -qF "${OTA_FEED}" /etc/opkg/customfeeds.conf || echo "${OTA_FEED}" >> /etc/opkg/customfeeds.conf
