@@ -55,7 +55,7 @@ on:
         default: false
 
 env:
-  DEVICE_INPUT: ${{ github.event.inputs.device || github.event.client_payload.device || 'ShawnRouters' }}
+  DEVICE_INPUT: ${{ github.event.inputs.device || github.event.client_payload.device || 'all' }}
   CCACHE_DIR: /workdir/.ccache
   CCACHE_MAXSIZE: 2G
   REPO_URL: ${{ github.event.inputs.repo || github.event.client_payload.repo || 'https://github.com/padavanonly/immortalwrt-mt798x-6.6' }}
@@ -245,7 +245,7 @@ jobs:
 
           # 1. 确定编译列表
           if [ "${DEVICE_INPUT}" = "all" ]; then
-            DEVICES="512M-Mod490 256M 128M 128M-Ubootmod"
+            DEVICES="512M-Mod490 360T7-Stock 256M 128M 128M-Ubootmod"
           elif [ "${DEVICE_INPUT}" = "ShawnRouters" ]; then
             DEVICES="512M-Mod490 360T7-Stock"
           else

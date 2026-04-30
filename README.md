@@ -6,6 +6,7 @@ It currently targets:
 
 - **Cudy TR3000 512MB v1** with the SN2544/new-flash 512MiB NAND layout and `mod-490m` U-Boot partition strategy.
 - **Qihoo 360T7** with its original stock layout.
+- Legacy Cudy TR3000 256MB, 128MB stock, and 128MB ubootmod layouts for reference builds.
 
 The firmware is built automatically with GitHub Actions from:
 
@@ -19,17 +20,20 @@ Use the **ShawnWrt Firmware Builder** workflow.
 Recommended profile:
 
 ```text
-Device: ShawnRouters
+Device: all
 ```
 
-`ShawnRouters` builds both daily-use targets:
+`all` builds every maintained target:
 
 | Workflow option | Device | Output image keyword |
 |---|---|---|
 | `512M-Mod490` | Cudy TR3000 512MB v1 | `cudy_tr3000-512mb-v1` |
 | `360T7-Stock` | Qihoo 360T7 | `qihoo_360t7` |
+| `256M` | Cudy TR3000 256MB layout | `cudy_tr3000` |
+| `128M` | Cudy TR3000 128MB stock layout | `cudy_tr3000` |
+| `128M-Ubootmod` | Cudy TR3000 128MB ubootmod layout | `cudy_tr3000` |
 
-The weekly scheduled build runs every Monday at 04:00 Asia/Shanghai. The update checker runs shortly after and only triggers a build when the upstream ImmortalWrt source changes.
+The weekly scheduled build runs every Monday at 04:00 Asia/Shanghai and builds `all`. The update checker runs shortly after and triggers another `all` build only when the upstream ImmortalWrt source changes.
 
 ## TR3000 512MB Layout
 
@@ -61,12 +65,11 @@ The ShawnWrt images include first-boot defaults for the dorm/router profile:
 - LuCI Aurora theme/config
 - Bandix
 - TurboACC MTK
-- MosDNS with LuCI and zh-cn localization
 - LuCI on Nginx/uWSGI for both TR3000 512MB and 360T7
 - UPnP, watchcat, DDNS, ksmbd, htop, jq and other daily admin tools
 
-`SmartDNS`, `ttyd`, `luci-app-ttyd`, and `luci-app-diskman` are intentionally
-excluded. MosDNS is the default DNS policy UI, SSH covers terminal access, and
+`SmartDNS`, LuCI SmartDNS, MosDNS, LuCI MosDNS, `ttyd`, `luci-app-ttyd`, and
+`luci-app-diskman` are intentionally excluded. SSH covers terminal access, and
 removing DiskMan avoids a slow optional compile path that is not important for
 this router profile.
 
@@ -77,7 +80,7 @@ ShawnWrt includes a small OTA helper and LuCI page:
 - CLI: `shawnwrt-ota`
 - LuCI: **System -> ShawnWrt OTA**
 - Standalone OTA package repo: <https://github.com/ShawnRn/shawnwrt-ota>
-- Built-in opkg feed: `src/gz shawnwrt_ota https://cdn.jsdelivr.net/gh/ShawnRn/shawnwrt-ota@opkg`
+- Built-in opkg feed: `src/gz shawnwrt_ota https://raw.githubusercontent.com/ShawnRn/shawnwrt-ota/opkg`
 
 The OTA helper:
 
@@ -105,6 +108,7 @@ Release assets are sysupgrade images. Pick the file by device keyword:
 |---|---|
 | Cudy TR3000 512MB v1 | `cudy_tr3000-512mb-v1` |
 | Qihoo 360T7 | `qihoo_360t7` |
+| Cudy TR3000 256MB / 128MB variants | `cudy_tr3000` |
 
 ## U-Boot
 
