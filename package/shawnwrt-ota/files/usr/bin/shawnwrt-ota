@@ -20,6 +20,8 @@ Commands:
   download    Download and verify the latest matching firmware
   test        Download, verify, and run sysupgrade --test
   install     Download, verify, test, then run sysupgrade preserving config
+  finalize-pending
+              Mark a pending install as installed after first boot
   mark-installed [tag]  Record current or given release tag as installed
   board       Print detected ShawnWrt OTA board id
   help        Show this help
@@ -158,20 +160,77 @@ set ${STATE_CONFIG}.state.installed_tag='${tag}'
 set ${STATE_CONFIG}.state.installed_asset='${asset}'
 set ${STATE_CONFIG}.state.installed_digest='${digest}'
 set ${STATE_CONFIG}.state.installed_at='${date}'
+delete ${STATE_CONFIG}.state.pending_tag
+delete ${STATE_CONFIG}.state.pending_asset
+delete ${STATE_CONFIG}.state.pending_digest
+delete ${STATE_CONFIG}.state.pending_at
+commit ${STATE_CONFIG}
+EOF
+}
+
+record_pending() {
+	local info tag asset digest date
+	info="${1:-$(latest_info)}"
+	tag="$(info_value "$info" TAG)"
+	asset="$(info_value "$info" ASSET)"
+	digest="$(info_value "$info" DIGEST)"
+	date="$(date '+%Y-%m-%d %H:%M:%S %z')"
+
+	[ -n "$tag" ] || die "cannot record pending release without tag"
+
+	touch "/etc/config/${STATE_CONFIG}"
+	uci -q batch <<EOF
+set ${STATE_CONFIG}.state=state
+set ${STATE_CONFIG}.state.pending_tag='${tag}'
+set ${STATE_CONFIG}.state.pending_asset='${asset}'
+set ${STATE_CONFIG}.state.pending_digest='${digest}'
+set ${STATE_CONFIG}.state.pending_at='${date}'
+commit ${STATE_CONFIG}
+EOF
+}
+
+finalize_pending() {
+	local tag asset digest pending_at date
+	tag="$(uci_get "${STATE_CONFIG}.state.pending_tag")"
+	asset="$(uci_get "${STATE_CONFIG}.state.pending_asset")"
+	digest="$(uci_get "${STATE_CONFIG}.state.pending_digest")"
+	pending_at="$(uci_get "${STATE_CONFIG}.state.pending_at")"
+	date="$(date '+%Y-%m-%d %H:%M:%S %z')"
+
+	[ -n "$tag" ] || return 0
+
+	touch "/etc/config/${STATE_CONFIG}"
+	uci -q batch <<EOF
+set ${STATE_CONFIG}.state=state
+set ${STATE_CONFIG}.state.installed_tag='${tag}'
+set ${STATE_CONFIG}.state.installed_asset='${asset}'
+set ${STATE_CONFIG}.state.installed_digest='${digest}'
+set ${STATE_CONFIG}.state.installed_at='${date}'
+set ${STATE_CONFIG}.state.installed_from_pending_at='${pending_at}'
+delete ${STATE_CONFIG}.state.pending_tag
+delete ${STATE_CONFIG}.state.pending_asset
+delete ${STATE_CONFIG}.state.pending_digest
+delete ${STATE_CONFIG}.state.pending_at
 commit ${STATE_CONFIG}
 EOF
 }
 
 status_info() {
-	local info latest_tag installed_tag installed_asset installed_digest installed_at state
+	local info latest_tag installed_tag installed_asset installed_digest installed_at pending_tag pending_asset pending_digest pending_at state
 	info="$(latest_info)"
 	latest_tag="$(info_value "$info" TAG)"
 	installed_tag="$(uci_get "${STATE_CONFIG}.state.installed_tag")"
 	installed_asset="$(uci_get "${STATE_CONFIG}.state.installed_asset")"
 	installed_digest="$(uci_get "${STATE_CONFIG}.state.installed_digest")"
 	installed_at="$(uci_get "${STATE_CONFIG}.state.installed_at")"
+	pending_tag="$(uci_get "${STATE_CONFIG}.state.pending_tag")"
+	pending_asset="$(uci_get "${STATE_CONFIG}.state.pending_asset")"
+	pending_digest="$(uci_get "${STATE_CONFIG}.state.pending_digest")"
+	pending_at="$(uci_get "${STATE_CONFIG}.state.pending_at")"
 
-	if [ -z "$installed_tag" ]; then
+	if [ -n "$pending_tag" ] && [ "$pending_tag" = "$latest_tag" ]; then
+		state="pending"
+	elif [ -z "$installed_tag" ]; then
 		state="unknown"
 	elif [ "$installed_tag" = "$latest_tag" ]; then
 		state="current"
@@ -185,6 +244,10 @@ INSTALLED_TAG=$installed_tag
 INSTALLED_ASSET=$installed_asset
 INSTALLED_DIGEST=$installed_digest
 INSTALLED_AT=$installed_at
+PENDING_TAG=$pending_tag
+PENDING_ASSET=$pending_asset
+PENDING_DIGEST=$pending_digest
+PENDING_AT=$pending_at
 $info
 EOF
 }
@@ -255,16 +318,26 @@ test_firmware() {
 }
 
 install_firmware() {
-	local out args info
+	local out args info log cmd
 	out="$(test_firmware | firmware_path_from_download_output)"
 	info="$(latest_info)"
 	args=""
 	[ "$KEEP_PACKAGES" = "1" ] && args="$args -k"
 	needs_force_upgrade && args="$args -F"
-	record_installed "$info"
-	echo "Installing $out"
-	# shellcheck disable=SC2086
-	exec sysupgrade $args "$out"
+	record_pending "$info"
+	log="$DOWNLOAD_DIR/install.log"
+	rm -f "$log"
+	echo "INSTALL=started"
+	echo "DOWNLOAD=$out"
+	echo "LOG=$log"
+	cmd="sleep 2; exec sysupgrade $args '$out'"
+	if command -v setsid >/dev/null 2>&1; then
+		setsid sh -c "$cmd" >"$log" 2>&1 </dev/null &
+	else
+		# shellcheck disable=SC2086
+		( sleep 2; exec sysupgrade $args "$out" ) >"$log" 2>&1 </dev/null &
+	fi
+	echo "PID=$!"
 }
 
 main() {
@@ -286,6 +359,9 @@ main() {
 			;;
 		install)
 			install_firmware
+			;;
+		finalize-pending)
+			finalize_pending
 			;;
 		mark-installed)
 			if [ -n "${2:-}" ]; then

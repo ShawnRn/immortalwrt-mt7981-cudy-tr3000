@@ -12,6 +12,8 @@ var L = {
 	currentText: zh ? '当前系统已经安装最新发布版本，无需操作。' : _('This router is already running the latest release. No action is needed.'),
 	updateTitle: zh ? '发现新版本' : _('Update available'),
 	updateText: zh ? '可以先测试升级，确认通过后再安装。安装会保留配置并重启路由器。' : _('Run the upgrade test first, then install. Configuration will be preserved and the router will reboot.'),
+	pendingTitle: zh ? '安装已启动' : _('Installation started'),
+	pendingText: zh ? '固件刷写已经交给系统后台执行。请等待路由器自动重启，期间不要断电。' : _('Firmware installation is running in the background. Wait for the router to reboot and do not power it off.'),
 	unknownTitle: zh ? '无法判断当前版本' : _('Current version unknown'),
 	unknownText: zh ? '这是旧版 OTA 首次记录前的状态。若你刚刚手动刷入了最新固件，可以点击“标记为已安装”。' : _('This can happen before the OTA helper has recorded an installed release. If you just flashed the latest image manually, mark it as installed.'),
 	installedRelease: zh ? '当前已安装' : _('Installed release'),
@@ -28,6 +30,9 @@ var L = {
 	testOk: zh ? '测试通过，可以安装。' : _('Upgrade test passed. You can install the update.'),
 	downloadOk: zh ? '下载并校验完成。' : _('Download and verification completed.'),
 	installStarted: zh ? '已开始安装，路由器会重启。' : _('Installation started. The router will reboot.'),
+	installStartedLine: zh ? '安装已启动：后台正在执行 sysupgrade，路由器稍后会自动重启。' : _('Installation started: sysupgrade is running in the background and the router will reboot shortly.'),
+	pendingLine: zh ? '待完成安装' : _('Pending install'),
+	installLogLine: zh ? '安装日志' : _('Install log'),
 	forceTr3000: zh ? 'TR3000 512MB 兼容性检查已通过：当前系统报告 cudy,tr3000-v1，固件目标为 cudy,tr3000-512mb-v1，这是 ShawnWrt 512MB 固件的预期差异，已安全使用强制兼容测试。' : _('TR3000 512MB compatibility check passed: the running system reports cudy,tr3000-v1 while the image target is cudy,tr3000-512mb-v1. This is expected for ShawnWrt 512MB images, so the forced compatibility test was used safely.'),
 	testPassedLine: zh ? '测试通过：固件已通过 sysupgrade 兼容性检查。' : _('Test passed: the firmware passed the sysupgrade compatibility check.'),
 	shaLine: zh ? 'SHA256 校验通过' : _('SHA256 verified'),
@@ -165,6 +170,9 @@ return view.extend({
 			if (state === 'update')
 				return { cls: 'has-update', title: L.updateTitle, text: L.updateText };
 
+			if (state === 'pending')
+				return { cls: 'is-pending', title: L.pendingTitle, text: L.pendingText };
+
 			return { cls: 'is-unknown', title: L.unknownTitle, text: L.unknownText };
 		}
 
@@ -197,6 +205,16 @@ return view.extend({
 					return;
 				}
 
+				if (line === 'INSTALL=started') {
+					mapped.push(L.installStartedLine);
+					return;
+				}
+
+				if (line.indexOf('LOG=') === 0) {
+					mapped.push(L.installLogLine + ': ' + line.slice(4));
+					return;
+				}
+
 				if (line.indexOf('SHA256=') === 0) {
 					mapped.push(L.shaLine + ': ' + line.slice(7));
 					return;
@@ -209,12 +227,19 @@ return view.extend({
 
 				if (line.indexOf('STATE=') === 0) {
 					value = line.slice(6);
-					mapped.push(L.stateLine + ': ' + (value === 'current' ? L.currentTitle : value === 'update' ? L.updateTitle : L.unknownTitle));
+					mapped.push(L.stateLine + ': ' + (value === 'current' ? L.currentTitle : value === 'update' ? L.updateTitle : value === 'pending' ? L.pendingTitle : L.unknownTitle));
 					return;
 				}
 
 				if (line.indexOf('INSTALLED_TAG=') === 0) {
 					mapped.push(L.installedLine + ': ' + (line.slice(14) || L.unknown));
+					return;
+				}
+
+				if (line.indexOf('PENDING_TAG=') === 0) {
+					value = line.slice(12);
+					if (value)
+						mapped.push(L.pendingLine + ': ' + value);
 					return;
 				}
 
@@ -449,6 +474,7 @@ return view.extend({
 				.shawnwrt-ota-state p { margin: 0; color: var(--swrt-text-muted); }
 				.shawnwrt-ota-state.is-current { background: var(--swrt-current-bg); border-color: var(--swrt-current-border); }
 				.shawnwrt-ota-state.has-update { background: var(--swrt-update-bg); border-color: var(--swrt-update-border); }
+				.shawnwrt-ota-state.is-pending { background: var(--swrt-update-bg); border-color: var(--swrt-update-border); }
 				.shawnwrt-ota-state.is-unknown { background: var(--swrt-unknown-bg); border-color: var(--swrt-unknown-border); }
 				.shawnwrt-ota-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem 1rem; }
 				.shawnwrt-ota-row { min-width: 0; border-bottom: 1px solid var(--swrt-border-soft); padding-bottom: .65rem; }
