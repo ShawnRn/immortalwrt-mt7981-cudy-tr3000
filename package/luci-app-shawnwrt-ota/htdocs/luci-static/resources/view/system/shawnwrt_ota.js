@@ -50,6 +50,7 @@ var L = {
 	help: zh ? '说明' : _('Help'),
 	helpTitle: zh ? '在线升级说明' : _('OTA help'),
 	helpIntro: zh ? '这个页面会自动匹配当前设备对应的 sysupgrade 固件，下载后校验 SHA256，并在安装前执行升级测试。' : _('This page automatically matches the sysupgrade image for this device, verifies SHA256 after download, and runs an upgrade test before installation.'),
+	helpIntroKicker: zh ? 'ShawnWrt OTA' : _('ShawnWrt OTA'),
 	helpFlowTitle: zh ? '推荐流程' : _('Recommended flow'),
 	helpFlow: zh ? [
 		'点击“检查更新”，确认是否发现新版本。',
@@ -271,10 +272,17 @@ return view.extend({
 				ui.addNotification(null, E('p', successMessage), 'success');
 		}
 
-		function helpSection(title, items) {
-			return E('section', { 'class': 'shawnwrt-ota-help-section' }, [
+		function helpFlowStep(text, index) {
+			return E('li', { 'class': 'shawnwrt-ota-help-step' }, [
+				E('span', { 'class': 'shawnwrt-ota-help-step-index' }, [String(index + 1)]),
+				E('span', [text])
+			]);
+		}
+
+		function helpListSection(title, items, tone) {
+			return E('section', { 'class': 'shawnwrt-ota-help-card ' + (tone || '') }, [
 				E('h4', [title]),
-				E('ul', items.map(function(item) {
+				E('ul', { 'class': 'shawnwrt-ota-help-list' }, items.map(function(item) {
 					return E('li', [item]);
 				}))
 			]);
@@ -282,13 +290,21 @@ return view.extend({
 
 		function showHelp() {
 			return ui.showModal(L.helpTitle, [
-				E('div', { 'class': 'shawnwrt-ota-help-modal' }, [
-					E('p', { 'class': 'shawnwrt-ota-help-intro' }, [L.helpIntro]),
-					helpSection(L.helpFlowTitle, L.helpFlow),
-					helpSection(L.helpButtonsTitle, L.helpButtons),
-					helpSection(L.helpNotesTitle, L.helpNotes)
+					E('div', { 'class': 'shawnwrt-ota-help-modal' }, [
+						E('div', { 'class': 'shawnwrt-ota-help-hero' }, [
+							E('div', { 'class': 'shawnwrt-ota-help-kicker' }, [L.helpIntroKicker]),
+							E('p', [L.helpIntro])
+						]),
+					E('div', { 'class': 'shawnwrt-ota-help-body' }, [
+						E('section', { 'class': 'shawnwrt-ota-help-card shawnwrt-ota-help-flow' }, [
+							E('h4', [L.helpFlowTitle]),
+							E('ol', L.helpFlow.map(helpFlowStep))
+						]),
+						helpListSection(L.helpButtonsTitle, L.helpButtons),
+						helpListSection(L.helpNotesTitle, L.helpNotes, 'is-warning')
+					])
 				]),
-				E('div', { 'class': 'right' }, [
+				E('div', { 'class': 'right shawnwrt-ota-help-actions' }, [
 					E('button', {
 						'class': 'btn cbi-button',
 						'click': ui.hideModal
@@ -461,12 +477,122 @@ return view.extend({
 					font-weight: 700;
 				}
 				.shawnwrt-ota-help-button:hover { border-color: var(--swrt-border); filter: brightness(1.05); }
-				.shawnwrt-ota-help-modal { max-width: 46rem; color: var(--swrt-text, var(--foreground, var(--text-color, #222))); }
-				.shawnwrt-ota-help-intro { margin-top: 0; color: var(--swrt-text-muted, var(--muted-foreground, var(--text-color-medium, #666))); }
-				.shawnwrt-ota-help-section { margin-top: 1rem; }
-				.shawnwrt-ota-help-section h4 { margin: 0 0 .45rem; color: var(--swrt-text, var(--foreground, var(--text-color, #222))); }
-				.shawnwrt-ota-help-section ul { margin: 0; padding-left: 1.25rem; }
-				.shawnwrt-ota-help-section li { margin: .28rem 0; line-height: 1.45; color: var(--swrt-text, var(--foreground, var(--text-color, #222))); }
+				.modal:has(.shawnwrt-ota-help-modal),
+				.cbi-modal:has(.shawnwrt-ota-help-modal) {
+					width: min(1080px, calc(100vw - 2rem)) !important;
+					max-width: calc(100vw - 2rem) !important;
+				}
+				.shawnwrt-ota-help-modal {
+					box-sizing: border-box;
+					width: 100%;
+					max-width: 1020px;
+					color: var(--swrt-text, var(--foreground, var(--text-color, #222)));
+				}
+				.shawnwrt-ota-help-hero {
+					margin: -.2rem 0 1rem;
+					padding-bottom: .9rem;
+					border-bottom: 1px solid var(--swrt-border-soft, rgba(0,0,0,.10));
+				}
+				.shawnwrt-ota-help-kicker {
+					margin-bottom: .35rem;
+					color: #d36545;
+					font-size: .78rem;
+					font-weight: 700;
+					letter-spacing: .04em;
+					text-transform: uppercase;
+				}
+				.shawnwrt-ota-help-hero p {
+					margin: 0;
+					max-width: 58rem;
+					color: var(--swrt-text-muted, var(--muted-foreground, var(--text-color-medium, #666)));
+					line-height: 1.55;
+				}
+				.shawnwrt-ota-help-body {
+					display: grid;
+					grid-template-columns: repeat(3, minmax(0, 1fr));
+					grid-auto-rows: 1fr;
+					gap: .85rem;
+					align-items: stretch;
+				}
+				.shawnwrt-ota-help-card {
+					display: flex;
+					flex-direction: column;
+					gap: .35rem;
+					min-width: 0;
+					height: 100%;
+					padding: 1rem;
+					border: 1px solid var(--swrt-border-soft, rgba(0,0,0,.10));
+					border-radius: 8px;
+					background: var(--swrt-surface-muted, rgba(0,0,0,.035));
+				}
+				.shawnwrt-ota-help-card.is-warning {
+					background: var(--swrt-update-bg, rgba(217,119,6,.12));
+					border-color: var(--swrt-update-border, rgba(217,119,6,.28));
+				}
+				.shawnwrt-ota-help-card h4 {
+					margin: 0;
+					padding-bottom: .78rem;
+					border-bottom: 1px solid var(--swrt-border-soft, rgba(0,0,0,.10));
+					color: var(--swrt-text, var(--foreground, var(--text-color, #222)));
+					font-size: .96rem;
+					line-height: 1.25;
+					font-weight: 700;
+					text-align: left !important;
+				}
+				.shawnwrt-ota-help-flow ol,
+				.shawnwrt-ota-help-list {
+					flex: 1;
+					margin: 0;
+					padding: .35rem 0 0;
+					list-style: none;
+				}
+				.shawnwrt-ota-help-step {
+					display: grid;
+					grid-template-columns: 1.55rem minmax(0, 1fr);
+					gap: .55rem;
+					align-items: start;
+					margin: 0 0 .68rem;
+					color: var(--swrt-text, var(--foreground, var(--text-color, #222)));
+					font-size: .9rem;
+					line-height: 1.42;
+				}
+				.shawnwrt-ota-help-step:last-child { margin-bottom: 0; }
+				.shawnwrt-ota-help-step-index {
+					display: inline-flex;
+					align-items: center;
+					justify-content: center;
+					width: 1.55rem;
+					height: 1.55rem;
+					border-radius: 999px;
+					background: #d36545;
+					color: #fff;
+					font-size: .76rem;
+					font-weight: 700;
+				}
+				.shawnwrt-ota-help-list li {
+					position: relative;
+					margin: 0 0 .58rem;
+					padding-left: .82rem;
+					color: var(--swrt-text, var(--foreground, var(--text-color, #222)));
+					font-size: .9rem;
+					line-height: 1.42;
+				}
+				.shawnwrt-ota-help-list li:last-child { margin-bottom: 0; }
+				.shawnwrt-ota-help-list li::before {
+					content: "";
+					position: absolute;
+					left: 0;
+					top: .62em;
+					width: .32rem;
+					height: .32rem;
+					border-radius: 999px;
+					background: #d36545;
+				}
+				.shawnwrt-ota-help-actions {
+					margin-top: 1rem;
+					padding-top: .85rem;
+					border-top: 1px solid var(--swrt-border-soft, rgba(0,0,0,.10));
+				}
 				.shawnwrt-ota .cbi-map-descr { margin-bottom: 1.25rem; max-width: 780px; color: var(--swrt-text-muted); }
 				.shawnwrt-ota-panel { border: 1px solid var(--swrt-border); border-radius: 10px; padding: 1rem; background: var(--swrt-surface); }
 				.shawnwrt-ota-state { border-radius: 10px; padding: 1rem; margin-bottom: 1rem; border: 1px solid var(--swrt-border-soft); }
@@ -486,7 +612,23 @@ return view.extend({
 				.shawnwrt-ota-output-wrap { margin-top: .75rem; }
 				.shawnwrt-ota-output-title { color: var(--swrt-text-muted); font-weight: 600; margin-bottom: .45rem; }
 				.shawnwrt-ota-output { white-space: pre-wrap; max-height: 16rem; overflow: auto; padding: .85rem; border-radius: 8px; border: 1px solid var(--swrt-border-soft); background: var(--swrt-surface-muted); color: var(--swrt-text); }
-				@media (max-width: 900px) { .shawnwrt-ota-grid { grid-template-columns: 1fr; } .shawnwrt-ota-row { border-bottom: 1px solid var(--swrt-border-soft) !important; padding-bottom: .65rem !important; } }
+				@media (max-width: 900px) {
+					.shawnwrt-ota-grid,
+					.shawnwrt-ota-help-body { grid-template-columns: 1fr; }
+					.shawnwrt-ota-row { border-bottom: 1px solid var(--swrt-border-soft) !important; padding-bottom: .65rem !important; }
+				}
+				@media (min-width: 901px) and (max-width: 1180px) {
+					.shawnwrt-ota-help-body { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+					.shawnwrt-ota-help-modal { max-width: none; }
+				}
+				@media (max-width: 560px) {
+					.modal:has(.shawnwrt-ota-help-modal),
+					.cbi-modal:has(.shawnwrt-ota-help-modal) {
+						width: calc(100vw - 1rem) !important;
+						max-width: calc(100vw - 1rem) !important;
+					}
+					.shawnwrt-ota-help-card { padding: .85rem; }
+				}
 			`]),
 			E('div', { 'class': 'shawnwrt-ota-titlebar' }, [
 				E('h2', L.title),
