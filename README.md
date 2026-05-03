@@ -80,32 +80,36 @@ The ShawnWrt images include first-boot defaults for the dorm/router profile:
 - OpenClash
 - MiniEAP GDUFS package
 - LuCI Aurora theme/config
-- iStore and QuickStart dashboard auto-install from the kiddin9 opkg feed
+- iStore and QuickStart dashboard bundled from the kiddin9 binary IPKs
 - Bandix
 - TurboACC MTK
 - LuCI on Nginx/uWSGI for both TR3000 512MB and 360T7
 - LuCI status channel analysis from ImmortalWrt's `luci-mod-status`
 - UPnP, watchcat, DDNS, ksmbd, htop, jq and other daily admin tools
 
-`SmartDNS`, LuCI SmartDNS, MosDNS, LuCI MosDNS, `ttyd`, `luci-app-ttyd`, and
-`luci-app-diskman` are intentionally excluded from the compile-time image.
-QuickStart pulls `ttyd` when the post-flash installer installs QuickStart from
-the binary package feed.
+`SmartDNS`, LuCI SmartDNS, MosDNS, LuCI MosDNS, and `luci-app-diskman` are
+intentionally excluded from the compile-time image. QuickStart needs `ttyd`, so
+`ttyd`, `luci-app-ttyd`, and `luci-i18n-ttyd-zh-cn` are bundled by default.
 
-QuickStart and iStore are installed by `shawnwrt-defaults` after first boot from
-the branch-matched kiddin9 binary package feed:
+QuickStart and iStore are bundled into the firmware by
+`shawnwrt-quickstart-binary`, which extracts the branch-matched kiddin9 binary
+package payloads during the GitHub Actions build:
 
 - `src/gz kiddin9 https://dl.openwrt.ai/releases/24.10/packages/aarch64_cortex-a53/kiddin9`
 
-This avoids compiling QuickStart's heavier dependency chain in GitHub Actions.
-The installer retries on later boots until `luci-app-quickstart` and
-`luci-app-store` install successfully, then disables itself.
+This avoids compiling QuickStart's heavier source feed chain in GitHub Actions
+while still making QuickStart work on first boot without internet access.
+`shawnwrt-defaults` keeps the kiddin9 opkg source as an online fallback, but it
+only tries `opkg install` if the bundled QuickStart files are missing.
 The kiddin9 feed is unsigned, so the installer disables `opkg` feed signature
 checking before `opkg update`. It installs QuickStart with `--force-depends`
 because `mdadm` asks for RAID kernel modules that are not present in the online
 package feed, while the dashboard works without those RAID-only pieces.
 The installer also patches QuickStart's LuCI controller so `admin/quickstart`
 has a visible top-level `主页` menu entry ordered before NetworkGuide.
+It patches the iStore backend proxy to add `result.cpuTemperature` on
+`/cgi-bin/luci/istore/system/status/`, reading CPU thermal zones first and
+falling back to `ubus call luci getTempInfo`, otherwise QuickStart shows 0 C.
 
 MiniEAP should use the local `minieap-gdufs` package only. Do not also select
 feed `luci-proto-minieap` or `luci-i18n-minieap-zh-cn`, because those packages
