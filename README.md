@@ -100,6 +100,10 @@ the branch-matched kiddin9 binary package feed:
 This avoids compiling QuickStart's heavier dependency chain in GitHub Actions.
 The installer retries on later boots until `luci-app-quickstart` and
 `luci-app-store` install successfully, then disables itself.
+The kiddin9 feed is unsigned, so the installer disables `opkg` feed signature
+checking before `opkg update`. It installs QuickStart with `--force-depends`
+because `mdadm` asks for RAID kernel modules that are not present in the online
+package feed, while the dashboard works without those RAID-only pieces.
 
 MiniEAP should use the local `minieap-gdufs` package only. Do not also select
 feed `luci-proto-minieap` or `luci-i18n-minieap-zh-cn`, because those packages

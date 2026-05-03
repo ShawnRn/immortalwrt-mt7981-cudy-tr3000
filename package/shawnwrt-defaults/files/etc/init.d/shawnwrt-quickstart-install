@@ -10,12 +10,19 @@ ensure_feed() {
 	mkdir -p /etc/opkg
 	touch /etc/opkg/customfeeds.conf
 	grep -qF "${KIDDIN9_FEED}" /etc/opkg/customfeeds.conf || echo "${KIDDIN9_FEED}" >> /etc/opkg/customfeeds.conf
+
+	# The kiddin9 feed publishes Packages without Packages.sig. Without this,
+	# opkg refuses to keep its package list and QuickStart remains unavailable.
+	if grep -q '^option check_signature' /etc/opkg.conf 2>/dev/null; then
+		cp -a /etc/opkg.conf /etc/opkg.conf.bak.shawnwrt-quickstart 2>/dev/null || true
+		sed -i 's/^option check_signature/# option check_signature disabled for kiddin9 unsigned feed/' /etc/opkg.conf
+	fi
 }
 
 set_quickstart_home() {
 	if uci -q show luci >/dev/null 2>&1; then
 		uci -q get luci.main >/dev/null 2>&1 || uci -q set luci.main='core'
-		uci -q set luci.main.default_url='/cgi-bin/luci/admin/quickstart'
+		uci -q set luci.main.default_url='/admin/quickstart'
 		uci -q commit luci
 	fi
 
@@ -39,7 +46,7 @@ start_service() {
 
 	ensure_feed
 	opkg update >/tmp/shawnwrt-quickstart-opkg.log 2>&1 || return 0
-	opkg install luci-app-quickstart luci-app-store >>/tmp/shawnwrt-quickstart-opkg.log 2>&1 || return 0
+	opkg --force-depends install luci-app-quickstart luci-app-store >>/tmp/shawnwrt-quickstart-opkg.log 2>&1 || return 0
 
 	/etc/init.d/quickstart enable >/dev/null 2>&1 || true
 	/etc/init.d/quickstart start >/dev/null 2>&1 || true
