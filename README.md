@@ -99,6 +99,8 @@ package payloads during the GitHub Actions build:
 
 This avoids compiling QuickStart's heavier source feed chain in GitHub Actions
 while still making QuickStart work on first boot without internet access.
+The `shadow-common`, `shadow-useradd`, and `shadow-utils` runtime payloads are
+also bundled as binary IPKs to avoid the `libxcrypt` source build path.
 `shawnwrt-defaults` keeps the kiddin9 opkg source as an online fallback, but it
 only tries `opkg install` if the bundled QuickStart files are missing.
 The kiddin9 feed is unsigned, so the installer disables `opkg` feed signature

@@ -14,14 +14,17 @@ QUICKSTART_IPK_URLS:= \
 	https://dl.openwrt.ai/releases/24.10/packages/aarch64_cortex-a53/kiddin9/luci-app-store_0.1.32-1-r23_all.ipk \
 	https://dl.openwrt.ai/releases/24.10/packages/aarch64_cortex-a53/kiddin9/taskd_1.0.3-r3_all.ipk \
 	https://dl.openwrt.ai/releases/24.10/packages/aarch64_cortex-a53/kiddin9/luci-lib-taskd_1.0.25-r7_all.ipk \
-	https://dl.openwrt.ai/releases/24.10/packages/aarch64_cortex-a53/kiddin9/luci-lib-xterm_4.18.0-r2_all.ipk
+	https://dl.openwrt.ai/releases/24.10/packages/aarch64_cortex-a53/kiddin9/luci-lib-xterm_4.18.0-r2_all.ipk \
+	https://mirrors.vsean.net/openwrt/releases/24.10-SNAPSHOT/packages/aarch64_cortex-a53/packages/shadow-common_4.8.1-r3_aarch64_cortex-a53.ipk \
+	https://mirrors.vsean.net/openwrt/releases/24.10-SNAPSHOT/packages/aarch64_cortex-a53/packages/shadow-useradd_4.8.1-r3_aarch64_cortex-a53.ipk \
+	https://mirrors.vsean.net/openwrt/releases/24.10-SNAPSHOT/packages/aarch64_cortex-a53/packages/shadow-utils_4.8.1-r3_aarch64_cortex-a53.ipk
 
 define Package/shawnwrt-quickstart-binary
   SECTION:=luci
   CATEGORY:=LuCI
   TITLE:=ShawnWrt bundled QuickStart and iStore binaries
-  DEPENDS:=+bash +block-mount +coreutils +coreutils-stty +curl +e2fsprogs +ip-full +kmod-md-mod +kmod-md-raid0 +kmod-md-raid1 +kmod-md-raid10 +libuci-lua +lsblk +luci-app-ttyd +luci-i18n-ttyd-zh-cn +luci-lib-ipkg +luci-lua-runtime +mdadm +mount-utils +opkg +parted +script-utils +shadow-useradd +shadow-utils +smartd +smartmontools +tar +ttyd +ubus +uci
-  PROVIDES:=quickstart luci-app-quickstart luci-app-store taskd luci-lib-taskd luci-lib-xterm
+  DEPENDS:=+bash +block-mount +coreutils +coreutils-stty +curl +e2fsprogs +ip-full +kmod-md-mod +kmod-md-raid0 +kmod-md-raid1 +kmod-md-raid10 +libuci-lua +lsblk +luci-app-ttyd +luci-i18n-ttyd-zh-cn +luci-lib-ipkg +luci-lua-runtime +mdadm +mount-utils +opkg +parted +script-utils +smartd +smartmontools +tar +ttyd +ubus +uci
+  PROVIDES:=quickstart luci-app-quickstart luci-app-store taskd luci-lib-taskd luci-lib-xterm shadow-common shadow-useradd shadow-utils
   PKGARCH:=aarch64_cortex-a53
 endef
 
