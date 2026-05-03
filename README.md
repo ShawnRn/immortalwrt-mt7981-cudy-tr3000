@@ -104,6 +104,8 @@ The kiddin9 feed is unsigned, so the installer disables `opkg` feed signature
 checking before `opkg update`. It installs QuickStart with `--force-depends`
 because `mdadm` asks for RAID kernel modules that are not present in the online
 package feed, while the dashboard works without those RAID-only pieces.
+The installer also patches QuickStart's LuCI controller so `admin/quickstart`
+has a visible top-level `主页` menu entry ordered before NetworkGuide.
 
 MiniEAP should use the local `minieap-gdufs` package only. Do not also select
 feed `luci-proto-minieap` or `luci-i18n-minieap-zh-cn`, because those packages

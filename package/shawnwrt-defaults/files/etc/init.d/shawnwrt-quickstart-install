@@ -20,6 +20,14 @@ ensure_feed() {
 }
 
 set_quickstart_home() {
+	local quickstart_controller="/usr/lib/lua/luci/controller/quickstart.lua"
+
+	if [ -f "${quickstart_controller}" ] && ! grep -q 'template("quickstart/home"), _("主页"), 1' "${quickstart_controller}"; then
+		cp -a "${quickstart_controller}" "${quickstart_controller}.bak.shawnwrt-home" 2>/dev/null || true
+		sed -i 's/entry({"admin", "quickstart"}, template("quickstart\/home")).leaf = true/entry({"admin", "quickstart"}, template("quickstart\/home"), _("Home"), 1).leaf = true/' "${quickstart_controller}"
+		sed -i 's/_("Home")/_("主页")/g' "${quickstart_controller}"
+	fi
+
 	if uci -q show luci >/dev/null 2>&1; then
 		uci -q get luci.main >/dev/null 2>&1 || uci -q set luci.main='core'
 		uci -q set luci.main.default_url='/admin/quickstart'
@@ -39,6 +47,8 @@ set_quickstart_home() {
 </html>
 EOF
 	fi
+
+	rm -rf /tmp/luci-* /tmp/luci-indexcache /tmp/luci-modulecache 2>/dev/null || true
 }
 
 start_service() {
