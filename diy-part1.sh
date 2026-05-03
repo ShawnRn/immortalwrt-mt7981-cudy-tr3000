@@ -20,18 +20,6 @@ set -euo pipefail
 
 : "${GITHUB_WORKSPACE:?GITHUB_WORKSPACE must point to the firmware repo root}"
 
-append_feed() {
-  local line="$1"
-  grep -qxF "$line" feeds.conf.default || echo "$line" >> feeds.conf.default
-}
-
-# QuickStart/iStore are integrated as normal OpenWrt feeds. The quickstart
-# service recipe downloads LinkEase's prebuilt binary, avoiding a heavy local
-# compile while still baking the packages into the image.
-append_feed 'src-git istore https://github.com/linkease/istore;main'
-append_feed 'src-git nas https://github.com/linkease/nas-packages.git;master'
-append_feed 'src-git nas_luci https://github.com/linkease/nas-packages-luci.git;main'
-
 # Copy custom local packages into OpenWrt tree so they are available during build.
 # luci-proto-minieap and luci-i18n-minieap-zh-cn come from the LuCI feed; copying
 # local packages with the same names creates duplicate Kconfig symbols.

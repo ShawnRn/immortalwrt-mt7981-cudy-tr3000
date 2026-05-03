@@ -31,6 +31,27 @@ Device: ShawnRouters
 
 The weekly scheduled build runs every Monday at 04:00 Asia/Shanghai and builds `ShawnRouters`. The update checker runs shortly after and triggers another `ShawnRouters` build only when the upstream ImmortalWrt source changes.
 
+## Local Mac Builds
+
+You can also build on any Mac with Docker/Colima:
+
+```sh
+./scripts/local-docker-build.sh doctor
+./scripts/local-docker-build.sh all
+```
+
+Single-device builds:
+
+```sh
+./scripts/local-docker-build.sh 512m
+./scripts/local-docker-build.sh 360t7
+```
+
+The local builder keeps the OpenWrt tree inside Docker named volumes and copies
+only final firmware artifacts to `artifacts/local-builds/`. See
+[`LOCAL_BUILD.md`](LOCAL_BUILD.md) for a full first-run guide, dependency setup,
+cache cleanup, and troubleshooting.
+
 ## TR3000 512MB Layout
 
 The current Cudy TR3000 unit uses the SN2544/new-flash 512MiB NAND layout:
@@ -59,15 +80,26 @@ The ShawnWrt images include first-boot defaults for the dorm/router profile:
 - OpenClash
 - MiniEAP GDUFS packages
 - LuCI Aurora theme/config
+- iStore and QuickStart dashboard auto-install from the kiddin9 opkg feed
 - Bandix
 - TurboACC MTK
 - LuCI on Nginx/uWSGI for both TR3000 512MB and 360T7
+- LuCI status channel analysis from ImmortalWrt's `luci-mod-status`
 - UPnP, watchcat, DDNS, ksmbd, htop, jq and other daily admin tools
 
 `SmartDNS`, LuCI SmartDNS, MosDNS, LuCI MosDNS, `ttyd`, `luci-app-ttyd`, and
-`luci-app-diskman` are intentionally excluded. SSH covers terminal access, and
-removing DiskMan avoids a slow optional compile path that is not important for
-this router profile.
+`luci-app-diskman` are intentionally excluded from the compile-time image.
+QuickStart pulls `ttyd` when the post-flash installer installs QuickStart from
+the binary package feed.
+
+QuickStart and iStore are installed by `shawnwrt-defaults` after first boot from
+the branch-matched kiddin9 binary package feed:
+
+- `src/gz kiddin9 https://dl.openwrt.ai/releases/24.10/packages/aarch64_cortex-a53/kiddin9`
+
+This avoids compiling QuickStart's heavier dependency chain in GitHub Actions.
+The installer retries on later boots until `luci-app-quickstart` and
+`luci-app-store` install successfully, then disables itself.
 
 ## OTA
 
@@ -77,6 +109,7 @@ ShawnWrt includes a small OTA helper and LuCI page:
 - LuCI: **System -> ShawnWrt OTA**
 - Standalone OTA package repo: <https://github.com/ShawnRn/shawnwrt-ota>
 - Built-in opkg feed: `src/gz shawnwrt_ota https://raw.githubusercontent.com/ShawnRn/shawnwrt-ota/opkg`
+- Built-in third-party package feed: `src/gz kiddin9 https://dl.openwrt.ai/releases/24.10/packages/aarch64_cortex-a53/kiddin9`
 
 The OTA helper:
 

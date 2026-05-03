@@ -1,0 +1,51 @@
+#!/bin/sh /etc/rc.common
+
+START=99
+USE_PROCD=1
+
+KIDDIN9_FEED="src/gz kiddin9 https://dl.openwrt.ai/releases/24.10/packages/aarch64_cortex-a53/kiddin9"
+DONE_MARK="/etc/shawnwrt-quickstart-installed"
+
+ensure_feed() {
+	mkdir -p /etc/opkg
+	touch /etc/opkg/customfeeds.conf
+	grep -qF "${KIDDIN9_FEED}" /etc/opkg/customfeeds.conf || echo "${KIDDIN9_FEED}" >> /etc/opkg/customfeeds.conf
+}
+
+set_quickstart_home() {
+	if uci -q show luci >/dev/null 2>&1; then
+		uci -q get luci.main >/dev/null 2>&1 || uci -q set luci.main='core'
+		uci -q set luci.main.default_url='/cgi-bin/luci/admin/quickstart'
+		uci -q commit luci
+	fi
+
+	if [ -d /www ]; then
+		cat > /www/index.html <<'EOF'
+<!doctype html>
+<html>
+<head>
+<meta http-equiv="refresh" content="0; url=/cgi-bin/luci/admin/quickstart">
+</head>
+<body>
+<a href="/cgi-bin/luci/admin/quickstart">QuickStart</a>
+</body>
+</html>
+EOF
+	fi
+}
+
+start_service() {
+	[ -e "${DONE_MARK}" ] && return 0
+
+	ensure_feed
+	opkg update >/tmp/shawnwrt-quickstart-opkg.log 2>&1 || return 0
+	opkg install luci-app-quickstart luci-app-store >>/tmp/shawnwrt-quickstart-opkg.log 2>&1 || return 0
+
+	/etc/init.d/quickstart enable >/dev/null 2>&1 || true
+	/etc/init.d/quickstart start >/dev/null 2>&1 || true
+	/etc/init.d/ttyd enable >/dev/null 2>&1 || true
+
+	set_quickstart_home
+	touch "${DONE_MARK}"
+	/etc/init.d/shawnwrt-quickstart-install disable >/dev/null 2>&1 || true
+}

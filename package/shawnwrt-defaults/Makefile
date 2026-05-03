@@ -29,6 +29,9 @@ define Package/shawnwrt-defaults/install
 	$(INSTALL_DIR) $(1)/etc/opkg/keys
 	$(INSTALL_DATA) ./files/etc/opkg/keys/9143bef47f03c381 \
 		$(1)/etc/opkg/keys/9143bef47f03c381
+	$(INSTALL_DIR) $(1)/etc/init.d
+	$(INSTALL_BIN) ./files/etc/init.d/shawnwrt-quickstart-install \
+		$(1)/etc/init.d/shawnwrt-quickstart-install
 endef
 
 $(eval $(call BuildPackage,shawnwrt-defaults))
