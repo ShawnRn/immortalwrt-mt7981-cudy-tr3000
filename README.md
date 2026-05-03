@@ -78,7 +78,7 @@ The ShawnWrt images include first-boot defaults for the dorm/router profile:
 - LAN domain: `shawnwrt.lan`
 - Wi-Fi SSID: `Everyday is Holiday.`
 - OpenClash
-- MiniEAP GDUFS packages
+- MiniEAP GDUFS package
 - LuCI Aurora theme/config
 - iStore and QuickStart dashboard auto-install from the kiddin9 opkg feed
 - Bandix
@@ -100,6 +100,10 @@ the branch-matched kiddin9 binary package feed:
 This avoids compiling QuickStart's heavier dependency chain in GitHub Actions.
 The installer retries on later boots until `luci-app-quickstart` and
 `luci-app-store` install successfully, then disables itself.
+
+MiniEAP should use the local `minieap-gdufs` package only. Do not also select
+feed `luci-proto-minieap` or `luci-i18n-minieap-zh-cn`, because those packages
+install the same netifd protocol scripts and fail during rootfs package install.
 
 ## OTA
 
