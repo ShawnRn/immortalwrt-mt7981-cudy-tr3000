@@ -9,6 +9,7 @@
 # This is free software, licensed under the MIT License.
 # See /LICENSE for more information.
 #
+set -euo pipefail
 
 # Uncomment a feed source
 #sed -i 's/^#\(.*helloworld\)/\1/' feeds.conf.default
@@ -17,14 +18,37 @@
 #echo 'src-git helloworld https://github.com/fw876/helloworld' >>feeds.conf.default
 #echo 'src-git passwall https://github.com/xiaorouji/openwrt-passwall' >>feeds.conf.default
 
-# Copy custom local packages into OpenWrt tree so they are available during build
-for pkg in luci-compat-keep minieap-gdufs luci-proto-minieap luci-i18n-minieap-zh-cn shawnwrt-defaults shawnwrt-ota luci-app-shawnwrt-ota; do
+: "${GITHUB_WORKSPACE:?GITHUB_WORKSPACE must point to the firmware repo root}"
+
+append_feed() {
+  local line="$1"
+  grep -qxF "$line" feeds.conf.default || echo "$line" >> feeds.conf.default
+}
+
+# QuickStart/iStore are integrated as normal OpenWrt feeds. The quickstart
+# service recipe downloads LinkEase's prebuilt binary, avoiding a heavy local
+# compile while still baking the packages into the image.
+append_feed 'src-git istore https://github.com/linkease/istore;main'
+append_feed 'src-git nas https://github.com/linkease/nas-packages.git;master'
+append_feed 'src-git nas_luci https://github.com/linkease/nas-packages-luci.git;main'
+
+# Copy custom local packages into OpenWrt tree so they are available during build.
+# luci-proto-minieap and luci-i18n-minieap-zh-cn come from the LuCI feed; copying
+# local packages with the same names creates duplicate Kconfig symbols.
+for pkg in luci-compat-keep minieap-gdufs shawnwrt-defaults shawnwrt-ota luci-app-shawnwrt-ota; do
   if [ -d "$GITHUB_WORKSPACE/package/$pkg" ]; then
     mkdir -p package
     rm -rf "package/$pkg"
     cp -r "$GITHUB_WORKSPACE/package/$pkg" package/
   fi
 done
+
+rm -rf package/luci-theme-aurora \
+  package/luci-app-aurora-config \
+  package/luci-app-bandix \
+  package/openwrt-bandix \
+  package/luci-proto-minieap \
+  package/luci-i18n-minieap-zh-cn
 
 git clone https://github.com/eamonxg/luci-theme-aurora package/luci-theme-aurora
 patch -d package/luci-theme-aurora -p1 < "$GITHUB_WORKSPACE/patches/luci-theme-aurora-login-perf.patch"

@@ -22,6 +22,20 @@
 # 临时解决Rust问题
 sed -i 's/ci-llvm=true/ci-llvm=false/g' feeds/packages/lang/rust/Makefile
 
+# ShawnWrt keeps ttyd out of inherited target defaults. QuickStart is selected
+# explicitly in the ShawnWrt configs and may pull ttyd back in as its own
+# dependency.
+sed -i 's/[[:space:]]luci-app-ttyd[[:space:]]*/ /g' \
+  target/linux/mediatek/Makefile
+sed -i 's/[[:space:]]+luci-app-ttyd[[:space:]]*/ /g' \
+  package/mtk/applications/luci-app-turboacc-mtk/Makefile
+
+# The mt798x tree defaults to luci-light, which pulls uHTTPd. ShawnWrt uses
+# luci-nginx/uWSGI on port 80, so remove the default uHTTPd collection.
+sed -i '/luci-light/d' include/target.mk
+sed -i 's/DEPENDS:=+luci$/DEPENDS:=+luci-nginx/' \
+  package/emortal/default-settings/Makefile
+
 # add date in output file name
 sed -i -e '/^IMG_PREFIX:=/i BUILD_DATE := $(shell date +%Y%m%d)' \
        -e '/^IMG_PREFIX:=/ s/\($(SUBTARGET)\)/\1-$(BUILD_DATE)/' include/image.mk
