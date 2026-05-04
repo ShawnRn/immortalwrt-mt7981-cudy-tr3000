@@ -223,6 +223,17 @@ jobs:
           chmod +x $GITHUB_WORKSPACE/$DIY_P2_SH
           $GITHUB_WORKSPACE/$DIY_P2_SH
 
+      - name: 🏷️ Inject Version Tag
+        run: |
+          BUILD_TIME=$(date +"%Y%m%d-%H%M")
+          RELEASE_TAG="ImmortalWrt-${BUILD_TIME}"
+          echo "RELEASE_TAG=$RELEASE_TAG" >> $GITHUB_ENV
+          
+          cd openwrt
+          mkdir -p files/etc
+          echo "$RELEASE_TAG" > files/etc/shawnwrt_version
+          echo "Injected version: $RELEASE_TAG"
+
       - name: 🔨 Multi-Device Compilation Loop
         id: compile
         run: |
@@ -318,8 +329,7 @@ jobs:
         id: tag
         if: steps.compile.outputs.status == 'success' && env.UPLOAD_RELEASE == 'true'
         run: |
-          BUILD_TIME=$(date +"%Y%m%d-%H%M")
-          RELEASE_TAG="ImmortalWrt-${BUILD_TIME}"
+          RELEASE_TAG="${{ env.RELEASE_TAG }}"
           echo "release_tag=$RELEASE_TAG" >> $GITHUB_OUTPUT
 
           cat > release.txt << EOF
