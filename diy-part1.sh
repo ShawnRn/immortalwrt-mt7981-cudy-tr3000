@@ -26,6 +26,7 @@ for pkg in \
   luci-proto-minieap \
   luci-i18n-minieap-zh-cn \
   minieap-gdufs \
+  luci-app-shawnwrt-channel-analysis \
   shawnwrt-defaults \
   shawnwrt-ota \
   luci-app-shawnwrt-ota \

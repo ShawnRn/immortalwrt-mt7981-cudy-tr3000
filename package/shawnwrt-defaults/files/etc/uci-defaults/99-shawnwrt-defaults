@@ -63,17 +63,6 @@ if [ -d /www ]; then
 EOF
 fi
 
-STATUS_MENU="/usr/share/luci/menu.d/luci-mod-status.json"
-if [ -f "${STATUS_MENU}" ]; then
-	cp -a "${STATUS_MENU}" "${STATUS_MENU}.bak.shawnwrt-mtwifi-channel" 2>/dev/null || true
-	# ImmortalWrt's channel analysis view also works on MTK mtwifi, but the
-	# stock menu entry is hidden behind a mac80211-only dependency.
-	sed -i 's/"acl": \[ "luci-mod-status-channel_analysis" \],/"acl": [ "luci-mod-status-channel_analysis" ]/' "${STATUS_MENU}"
-	sed -i '/"uci": { "wireless": { "@wifi-device": { "type": "mac80211" } } }/d' "${STATUS_MENU}"
-	awk 'BEGIN{inblk=0} /"admin\/status\/channel_analysis"/{inblk=1} inblk && /"title": "Channel Analysis"/{sub(/"Channel Analysis"/,"\"信道分析\"")} inblk && /},/{inblk=0} {print}' \
-		"${STATUS_MENU}" > "${STATUS_MENU}.tmp" && mv "${STATUS_MENU}.tmp" "${STATUS_MENU}"
-fi
-
 mkdir -p /etc/opkg
 touch /etc/opkg/customfeeds.conf
 grep -qF "${OTA_FEED}" /etc/opkg/customfeeds.conf || echo "${OTA_FEED}" >> /etc/opkg/customfeeds.conf

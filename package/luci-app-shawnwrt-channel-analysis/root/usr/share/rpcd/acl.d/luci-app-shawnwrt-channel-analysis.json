@@ -1,0 +1,18 @@
+{
+	"luci-app-shawnwrt-channel-analysis": {
+		"description": "Grant access to ShawnWrt MTK channel analysis",
+		"read": {
+			"ubus": {
+				"iwinfo": [ "info", "freqlist", "scan" ],
+				"uci": [ "get", "changes" ]
+			},
+			"uci": [ "wireless" ]
+		},
+		"write": {
+			"ubus": {
+				"uci": [ "set", "changes", "apply", "confirm" ]
+			},
+			"uci": [ "wireless" ]
+		}
+	}
+}

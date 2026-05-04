@@ -1,0 +1,14 @@
+{
+	"admin/status/channel_analysis": {
+		"title": "信道分析",
+		"order": 7,
+		"action": {
+			"type": "view",
+			"path": "status/shawnwrt_channel_analysis"
+		},
+		"depends": {
+			"acl": [ "luci-app-shawnwrt-channel-analysis" ],
+			"uci": { "wireless": { "@wifi-device": { "type": "mtwifi" } } }
+		}
+	}
+}

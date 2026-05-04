@@ -169,8 +169,6 @@ EOF
 }
 
 start_service() {
-	[ -e "${DONE_MARK}" ] && return 0
-
 	if [ ! -x /usr/sbin/quickstart ] || [ ! -f /usr/lib/lua/luci/controller/quickstart.lua ]; then
 		ensure_feed
 		opkg update >/tmp/shawnwrt-quickstart-opkg.log 2>&1 || return 0
@@ -183,5 +181,7 @@ start_service() {
 
 	set_quickstart_home
 	touch "${DONE_MARK}"
-	/etc/init.d/shawnwrt-quickstart-install disable >/dev/null 2>&1 || true
+	# Keep this lightweight health check enabled. QuickStart/iStore package
+	# reinstalls can overwrite LuCI files, while the patchers above are
+	# idempotent and exit cleanly once ShawnWrt defaults are present.
 }

@@ -1,0 +1,70 @@
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Language: zh_Hans\n"
+
+msgid "Channel Analysis"
+msgstr "信道分析"
+
+msgid "Refresh Channels"
+msgstr "重新扫描"
+
+msgid "Apply suggested channel"
+msgstr "应用推荐信道"
+
+msgid "Current channel"
+msgstr "当前信道"
+
+msgid "Nearby APs"
+msgstr "附近 AP"
+
+msgid "Same-channel APs"
+msgstr "同信道 AP"
+
+msgid "Suggested channel"
+msgstr "推荐信道"
+
+msgid "Lower bars mean cleaner channels"
+msgstr "柱子越低，信道越干净"
+
+msgid "Number below each bar is nearby AP count"
+msgstr "柱子下方数字为附近 AP 数"
+
+msgid "Cancel"
+msgstr "取消"
+
+msgid "This will set %s to channel %s and apply wireless changes. Wi-Fi clients may briefly disconnect."
+msgstr "将把 %s 设置为信道 %s 并应用无线更改。Wi-Fi 客户端可能会短暂断开。"
+
+msgid "Scanning nearby APs..."
+msgstr "正在扫描附近 AP..."
+
+msgid "Scan failed: %s"
+msgstr "扫描失败：%s"
+
+msgid "No scan results. Try refreshing after a few seconds."
+msgstr "没有扫描结果。可稍等几秒后重新扫描。"
+
+msgid "SSID"
+msgstr "SSID"
+
+msgid "BSSID"
+msgstr "BSSID"
+
+msgid "Channel"
+msgstr "信道"
+
+msgid "Channel Width"
+msgstr "信道宽度"
+
+msgid "Signal"
+msgstr "信号强度"
+
+msgid "Quality"
+msgstr "质量"
+
+msgid "hidden"
+msgstr "隐藏网络"
+
+msgid "strongest"
+msgstr "最强信号"
