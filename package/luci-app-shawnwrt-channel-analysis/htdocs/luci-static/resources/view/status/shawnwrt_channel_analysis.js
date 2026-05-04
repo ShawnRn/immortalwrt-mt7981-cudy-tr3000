@@ -49,7 +49,8 @@ function channelWidth(ap) {
 	var widths = [];
 
 	function addWidth(value) {
-		var width = Number(value);
+		var match = String(value || '').match(/(20|40|80|160|320)/);
+		var width = match ? Number(match[1]) : Number(value);
 
 		if ([20, 40, 80, 160, 320].indexOf(width) >= 0)
 			widths.push(width);
@@ -383,15 +384,7 @@ return view.extend({
 				var x2 = xFor(right);
 				var y = yFor(signal);
 				var color = ap.isSelf ? '#f2994a' : colorFor(ap.bssid || ap.ssid || index);
-				var title = [
-					ap.ssid || _('hidden'),
-					'Ch. %s'.format(ap.channel),
-					'%s MHz'.format(widthMHz),
-					'%s dBm'.format(signal)
-				].join(', ');
-
 				var node = svgEl('g', { 'class': ap.isSelf ? 'shawnwrt-ap-shape is-self' : 'shawnwrt-ap-shape' }, [
-					svgEl('title', {}, [ title ]),
 					svgEl('rect', {
 						'x': x1.toFixed(1),
 						'y': y.toFixed(1),
