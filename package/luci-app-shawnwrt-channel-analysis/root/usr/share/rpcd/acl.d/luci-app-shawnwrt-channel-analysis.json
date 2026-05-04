@@ -4,6 +4,7 @@
 		"read": {
 			"ubus": {
 				"iwinfo": [ "info", "freqlist", "scan" ],
+				"shawnwrt_channel": [ "get_site_survey" ],
 				"uci": [ "get", "changes" ]
 			},
 			"uci": [ "wireless" ]

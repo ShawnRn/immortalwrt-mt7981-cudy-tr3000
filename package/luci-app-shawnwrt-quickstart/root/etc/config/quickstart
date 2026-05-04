@@ -1,0 +1,2 @@
+config quickstart 'main'
+	option disable_update_check '1'

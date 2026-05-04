@@ -1,0 +1,45 @@
+#!/usr/bin/env lua
+
+local sys = require "luci.sys"
+local jsonc = require "luci.jsonc"
+
+local method = arg[1]
+if method == "list" then
+	print('{ "get_site_survey": { "device": "string" } }')
+	os.exit(0)
+end
+
+if method == "call" then
+	local input = io.read("*a")
+	local req = jsonc.parse(input) or {}
+	local device = req.device or "ra0"
+	
+	-- Verify device name to prevent command injection
+	if not device:match("^[a-zA-Z0-9_]+$") then
+		print('{ "results": {} }')
+		os.exit(0)
+	end
+
+	local bssidToSsid = {}
+	local lines = sys.exec("iwpriv " .. device .. " get_site_survey 2>/dev/null")
+	
+	if lines then
+		for line in lines:gmatch("[^\r\n]+") do
+			-- BSSID starts at column 41 (1-indexed: 42) and length is 17
+			-- SSID starts at column 8 (1-indexed: 9) and max length is 33
+			if #line >= 58 then
+				local bssid = line:sub(42, 58):upper()
+				local ssid = line:sub(9, 41)
+				-- Trim trailing spaces
+				ssid = ssid:match("^(.-)%s*$")
+				
+				if bssid:match("^[0-9A-F]+:[0-9A-F]+:[0-9A-F]+:[0-9A-F]+:[0-9A-F]+:[0-9A-F]+$") then
+					bssidToSsid[bssid] = ssid
+				end
+			end
+		end
+	end
+	
+	print(jsonc.stringify({ results = bssidToSsid }))
+	os.exit(0)
+end

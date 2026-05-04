@@ -9,11 +9,17 @@ msgstr "信道分析"
 msgid "Refresh Channels"
 msgstr "重新扫描"
 
+msgid "Scanning..."
+msgstr "正在扫描..."
+
 msgid "Apply suggested channel"
 msgstr "应用推荐信道"
 
 msgid "Already using suggested channel"
 msgstr "已使用推荐信道"
+
+msgid "No suggested channel"
+msgstr "暂无推荐信道"
 
 msgid "Current channel"
 msgstr "当前信道"

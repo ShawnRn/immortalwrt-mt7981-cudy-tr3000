@@ -80,8 +80,7 @@ The ShawnWrt images include first-boot defaults for the dorm/router profile:
 - OpenClash
 - MiniEAP GDUFS package
 - LuCI Aurora theme/config
-- iStore and QuickStart dashboard bundled from the kiddin9 binary IPKs
-- Bandix
+- ShawnWrt QuickStart homepage bundled from source
 - TurboACC MTK
 - LuCI on Nginx/uWSGI for both TR3000 512MB and 360T7
 - LuCI status channel analysis from ImmortalWrt's `luci-mod-status`
@@ -91,27 +90,12 @@ The ShawnWrt images include first-boot defaults for the dorm/router profile:
 intentionally excluded from the compile-time image. QuickStart needs `ttyd`, so
 `ttyd`, `luci-app-ttyd`, and `luci-i18n-ttyd-zh-cn` are bundled by default.
 
-QuickStart and iStore are bundled into the firmware by
-`shawnwrt-quickstart-binary`, which extracts the branch-matched kiddin9 binary
-package payloads during the GitHub Actions build:
-
-- `src/gz kiddin9 https://dl.openwrt.ai/releases/24.10/packages/aarch64_cortex-a53/kiddin9`
-
-This avoids compiling QuickStart's heavier source feed chain in GitHub Actions
-while still making QuickStart work on first boot without internet access.
-The `shadow-common`, `shadow-useradd`, and `shadow-utils` runtime payloads are
-also bundled as binary IPKs to avoid the `libxcrypt` source build path.
-`shawnwrt-defaults` keeps the kiddin9 opkg source as an online fallback, but it
-only tries `opkg install` if the bundled QuickStart files are missing.
-The kiddin9 feed is unsigned, so the installer disables `opkg` feed signature
-checking before `opkg update`. It installs QuickStart with `--force-depends`
-because `mdadm` asks for RAID kernel modules that are not present in the online
-package feed, while the dashboard works without those RAID-only pieces.
-The installer also patches QuickStart's LuCI controller so `admin/quickstart`
-has a visible top-level `主页` menu entry ordered before NetworkGuide.
-It patches the iStore backend proxy to add `result.cpuTemperature` on
-`/cgi-bin/luci/istore/system/status/`, reading CPU thermal zones first and
-falling back to `ubus call luci getTempInfo`, otherwise QuickStart shows 0 C.
+QuickStart is bundled as the local `luci-app-shawnwrt-quickstart` source
+package from ShawnWrt Packages. It keeps only the homepage, removes iStore,
+NetworkGuide, NAS, RAID, quickwifi, and online installer dependencies, and
+ships a small local status API for the dashboard. The status API includes
+`cpuTemperature`, reading CPU thermal zones first and falling back to
+`ubus call luci getTempInfo`, otherwise QuickStart shows 0 C.
 
 MiniEAP should use the local `minieap-gdufs` package only. Do not also select
 feed `luci-proto-minieap` or `luci-i18n-minieap-zh-cn`, because those packages
@@ -123,8 +107,8 @@ ShawnWrt includes a small OTA helper and LuCI page:
 
 - CLI: `shawnwrt-ota`
 - LuCI: **System -> ShawnWrt OTA**
-- Standalone OTA package repo: <https://github.com/ShawnRn/shawnwrt-ota>
-- Built-in opkg feed: `src/gz shawnwrt_ota https://raw.githubusercontent.com/ShawnRn/shawnwrt-ota/opkg`
+- Standalone ShawnWrt Packages repo: <https://github.com/ShawnRn/shawnwrt-packages>
+- Built-in opkg feed: `src/gz shawnwrt_packages https://raw.githubusercontent.com/ShawnRn/shawnwrt-packages/opkg`
 - Built-in third-party package feed: `src/gz kiddin9 https://dl.openwrt.ai/releases/24.10/packages/aarch64_cortex-a53/kiddin9`
 
 The OTA helper:

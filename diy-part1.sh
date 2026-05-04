@@ -30,7 +30,7 @@ for pkg in \
   shawnwrt-defaults \
   shawnwrt-ota \
   luci-app-shawnwrt-ota \
-  shawnwrt-quickstart-binary; do
+  luci-app-shawnwrt-quickstart; do
   if [ -d "$GITHUB_WORKSPACE/package/$pkg" ]; then
     mkdir -p package
     rm -rf "package/$pkg"
@@ -39,12 +39,8 @@ for pkg in \
 done
 
 rm -rf package/luci-theme-aurora \
-  package/luci-app-aurora-config \
-  package/luci-app-bandix \
-  package/openwrt-bandix
+  package/luci-app-aurora-config
 
 git clone https://github.com/eamonxg/luci-theme-aurora package/luci-theme-aurora
 patch -d package/luci-theme-aurora -p1 < "$GITHUB_WORKSPACE/patches/luci-theme-aurora-login-perf.patch"
 git clone https://github.com/eamonxg/luci-app-aurora-config package/luci-app-aurora-config
-git clone https://github.com/timsaya/luci-app-bandix package/luci-app-bandix
-git clone https://github.com/timsaya/openwrt-bandix package/openwrt-bandix
