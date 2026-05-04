@@ -30,6 +30,7 @@ function cleanText(value) {
 		.replace(/[\u0000-\u001f\u007f-\u009f]/g, '')
 		.replace(/[\ufffd�]+/g, '')
 		.replace(/\s+/g, ' ')
+		.replace(/\s*[\(（]+$/g, '')
 		.trim();
 }
 
@@ -278,6 +279,9 @@ return view.extend({
 			}).length;
 			var suggested = radio.scanned ? scoreChannels(radio.freqs, radio.aps) : '-';
 			var bandTitle = radio.band === '2g' ? '2.4 GHz' : radio.band === '5g' ? '5 GHz' : radio.band;
+			var configChannel = String(radio.configChannel || '').toLowerCase();
+			var canApply = radio.scanned && suggested && suggested !== '-' &&
+				(configChannel === 'auto' || Number(configChannel) !== Number(suggested));
 
 			return E('div', { 'class': 'shawnwrt-channel-card' }, [
 				E('div', { 'class': 'shawnwrt-channel-card-head' }, [
@@ -292,11 +296,11 @@ return view.extend({
 				]),
 				E('button', {
 					'class': 'btn cbi-button cbi-button-action shawnwrt-channel-apply',
-					'disabled': !radio.scanned || !suggested || suggested === '-' || Number(suggested) === Number(radio.info.channel),
+					'disabled': !canApply,
 					'click': function() {
 						return applySuggestedChannel(radio, suggested);
 					}
-				}, [ _('Apply suggested channel') ])
+				}, [ canApply ? _('Apply suggested channel') : _('Already using suggested channel') ])
 			]);
 		}
 
@@ -310,6 +314,7 @@ return view.extend({
 			var plotW = width - padL - padR;
 			var plotH = height - padT - padB;
 			var children = [];
+			var tooltip = E('div', { 'class': 'shawnwrt-spectrum-tooltip is-hidden' });
 
 			if (self)
 				apList.push(self);
@@ -352,6 +357,22 @@ return view.extend({
 				return node;
 			}
 
+			function tooltipRows(ap, widthMHz) {
+				return [
+					E('b', [ ap.ssid || _('hidden') ]),
+					E('span', [ _('BSSID'), ': ', ap.bssid || '-' ]),
+					E('span', [ _('Channel'), ': ', String(ap.channel || '-') ]),
+					E('span', [ _('Channel Width'), ': ', '%s MHz'.format(widthMHz) ]),
+					E('span', [ _('Signal'), ': ', ap.signal != null ? '%s dBm'.format(ap.signal) : '-' ]),
+					E('span', [ _('Quality'), ': ', ap.quality != null ? '%s/%s'.format(ap.quality, ap.quality_max || 100) : '-' ])
+				];
+			}
+
+			function moveTooltip(ev) {
+				tooltip.style.left = '%dpx'.format(ev.clientX + 14);
+				tooltip.style.top = '%dpx'.format(ev.clientY + 14);
+			}
+
 			function apShape(ap, index) {
 				var signal = Number(ap.signal);
 				var widthMHz = channelWidthMHz(ap);
@@ -369,7 +390,7 @@ return view.extend({
 					'%s dBm'.format(signal)
 				].join(', ');
 
-				return svgEl('g', { 'class': ap.isSelf ? 'shawnwrt-ap-shape is-self' : 'shawnwrt-ap-shape' }, [
+				var node = svgEl('g', { 'class': ap.isSelf ? 'shawnwrt-ap-shape is-self' : 'shawnwrt-ap-shape' }, [
 					svgEl('title', {}, [ title ]),
 					svgEl('rect', {
 						'x': x1.toFixed(1),
@@ -385,6 +406,18 @@ return view.extend({
 						'class': ap.isSelf ? 'shawnwrt-ap-label is-self' : 'shawnwrt-ap-label'
 					}, [ ap.ssid || _('hidden') ])
 				]);
+
+				node.addEventListener('mouseenter', function(ev) {
+					tooltip.replaceChildren.apply(tooltip, tooltipRows(ap, widthMHz));
+					tooltip.classList.remove('is-hidden');
+					moveTooltip(ev);
+				});
+				node.addEventListener('mousemove', moveTooltip);
+				node.addEventListener('mouseleave', function() {
+					tooltip.classList.add('is-hidden');
+				});
+
+				return node;
 			}
 
 			var svgNodes = [
@@ -449,6 +482,7 @@ return view.extend({
 					'aria-label': _('Wireless spectrum chart')
 				}, svgNodes)
 			]));
+			children.push(tooltip);
 
 			children.push(E('div', { 'class': 'shawnwrt-spectrum-legend' }, [
 				E('span', { 'class': 'is-current' }, [ _('Current channel') ]),
@@ -554,11 +588,25 @@ return view.extend({
 
 		var root = E('div', { 'class': 'cbi-map shawnwrt-channel-analysis' }, [
 			E('style', {}, [ `
-				.shawnwrt-channel-analysis { max-width: 96rem; margin: 0 auto; }
+				.shawnwrt-channel-analysis {
+					--swrt-panel: rgba(255,255,255,.72);
+					--swrt-panel-border: rgba(0,0,0,.10);
+					--swrt-muted: rgba(0,0,0,.58);
+					--swrt-spectrum-bg: rgba(0,0,0,.035);
+					--swrt-spectrum-grid: rgba(0,0,0,.16);
+					--swrt-spectrum-axis: rgba(0,0,0,.38);
+					--swrt-spectrum-label: rgba(0,0,0,.62);
+					--swrt-spectrum-label-strong: rgba(0,0,0,.82);
+					--swrt-tooltip-bg: rgba(255,255,255,.96);
+					--swrt-tooltip-fg: rgba(0,0,0,.86);
+					--swrt-tooltip-border: rgba(0,0,0,.14);
+					max-width: 96rem;
+					margin: 0 auto;
+				}
 				.shawnwrt-channel-titlebar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
 				.shawnwrt-channel-titlebar h2 { margin: 0; }
 				.shawnwrt-channel-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr)); gap: 1rem; margin-bottom: 1.25rem; }
-				.shawnwrt-channel-card { border: 1px solid rgba(0,0,0,.10); border-radius: 10px; padding: 1rem; background: rgba(255,255,255,.72); }
+				.shawnwrt-channel-card { border: 1px solid var(--swrt-panel-border); border-radius: 10px; padding: 1rem; background: var(--swrt-panel); }
 				.shawnwrt-channel-card-head { display: flex; justify-content: space-between; gap: 1rem; align-items: center; margin-bottom: .75rem; }
 				.shawnwrt-channel-card h3 { margin: 0; }
 				.shawnwrt-channel-card small { opacity: .65; font-weight: 500; }
@@ -566,26 +614,31 @@ return view.extend({
 				.shawnwrt-channel-metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .8rem; }
 				.shawnwrt-channel-metrics div { min-width: 0; }
 				.shawnwrt-channel-metrics b { display: block; font-size: 1.35rem; line-height: 1.2; }
-				.shawnwrt-channel-metrics span { color: rgba(0,0,0,.58); font-size: .9rem; }
+				.shawnwrt-channel-metrics span { color: var(--swrt-muted); font-size: .9rem; }
 				.shawnwrt-channel-apply { margin-top: .9rem; }
-				.shawnwrt-spectrum-section { margin: 1rem 0 1.25rem; border: 1px solid rgba(0,0,0,.10); border-radius: 10px; padding: 1rem; background: rgba(255,255,255,.62); }
+				.shawnwrt-spectrum-section { margin: 1rem 0 1.25rem; border: 1px solid var(--swrt-panel-border); border-radius: 10px; padding: 1rem; background: var(--swrt-panel); }
 				.shawnwrt-spectrum-head { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; margin-bottom: .75rem; }
 				.shawnwrt-spectrum-head h3 { margin: 0; }
-				.shawnwrt-spectrum-head small, .shawnwrt-channel-muted { color: rgba(0,0,0,.56); font-weight: 500; }
-				.shawnwrt-spectrum-scroll { overflow-x: auto; border-radius: 8px; background: #050a2f; }
+				.shawnwrt-spectrum-head small, .shawnwrt-channel-muted { color: var(--swrt-muted); font-weight: 500; }
+				.shawnwrt-spectrum-scroll { overflow-x: auto; border-radius: 8px; background: var(--swrt-spectrum-bg); }
 				.shawnwrt-spectrum-svg { display: block; width: 100%; min-width: 54rem; height: 21rem; }
-				.shawnwrt-spectrum-bg { fill: #050a2f; }
-				.shawnwrt-spectrum-grid { stroke: rgba(255,255,255,.18); stroke-dasharray: 3 5; }
-				.shawnwrt-spectrum-axis, .shawnwrt-spectrum-tick { stroke: rgba(255,255,255,.52); }
-				.shawnwrt-spectrum-y { fill: #20e34b; font-size: .9rem; font-weight: 700; }
-				.shawnwrt-spectrum-x { fill: rgba(255,255,255,.62); font-size: .85rem; font-weight: 650; }
+				.shawnwrt-spectrum-bg { fill: var(--swrt-spectrum-bg); }
+				.shawnwrt-spectrum-grid { stroke: var(--swrt-spectrum-grid); stroke-dasharray: 3 5; }
+				.shawnwrt-spectrum-axis, .shawnwrt-spectrum-tick { stroke: var(--swrt-spectrum-axis); }
+				.shawnwrt-spectrum-y { fill: var(--swrt-spectrum-label); font-size: .9rem; font-weight: 650; }
+				.shawnwrt-spectrum-x { fill: var(--swrt-spectrum-label); font-size: .85rem; font-weight: 650; }
 				.shawnwrt-spectrum-x.is-current { fill: #f2994a; }
 				.shawnwrt-spectrum-x.is-best { fill: #2ecc71; }
 				.shawnwrt-ap-shape rect { fill-opacity: .20; stroke-opacity: .78; stroke-width: 2.2; }
+				.shawnwrt-ap-shape:hover rect { fill-opacity: .34; stroke-opacity: .95; stroke-width: 3.4; }
 				.shawnwrt-ap-shape.is-self rect { fill: url(#shawnwrt-hatch); fill-opacity: .72; stroke: #f2994a !important; stroke-width: 3; }
-				.shawnwrt-ap-label { fill: rgba(255,255,255,.72); font-size: .86rem; font-weight: 750; text-anchor: middle; paint-order: stroke; stroke: rgba(5,10,47,.62); stroke-width: 3; stroke-linejoin: round; pointer-events: none; }
-				.shawnwrt-ap-label.is-self { fill: #ffd9bd; font-size: .95rem; }
-				.shawnwrt-spectrum-legend { display: flex; flex-wrap: wrap; gap: .6rem 1rem; margin-top: .7rem; color: rgba(0,0,0,.6); font-size: .9rem; }
+				.shawnwrt-ap-label { fill: var(--swrt-spectrum-label-strong); font-size: .86rem; font-weight: 750; text-anchor: middle; paint-order: stroke; stroke: var(--swrt-spectrum-bg); stroke-width: 3; stroke-linejoin: round; pointer-events: none; }
+				.shawnwrt-ap-label.is-self { fill: #bf6b22; font-size: .95rem; }
+				.shawnwrt-spectrum-tooltip { position: fixed; z-index: 9999; max-width: 18rem; padding: .65rem .75rem; border: 1px solid var(--swrt-tooltip-border); border-radius: 8px; background: var(--swrt-tooltip-bg); color: var(--swrt-tooltip-fg); box-shadow: 0 12px 28px rgba(0,0,0,.18); pointer-events: none; display: grid; gap: .18rem; font-size: .86rem; line-height: 1.35; }
+				.shawnwrt-spectrum-tooltip b { font-size: .95rem; margin-bottom: .15rem; overflow-wrap: anywhere; }
+				.shawnwrt-spectrum-tooltip span { color: inherit; opacity: .78; }
+				.shawnwrt-spectrum-tooltip.is-hidden { display: none; }
+				.shawnwrt-spectrum-legend { display: flex; flex-wrap: wrap; gap: .6rem 1rem; margin-top: .7rem; color: var(--swrt-muted); font-size: .9rem; }
 				.shawnwrt-spectrum-legend span::before { content: ''; display: inline-block; width: .7rem; height: .7rem; border-radius: .2rem; background: #2e86de; margin-right: .35rem; vertical-align: -.05rem; }
 				.shawnwrt-spectrum-legend .is-current::before { background: #f2994a; }
 				.shawnwrt-spectrum-legend .is-best::before { background: #2ecc71; }
@@ -593,10 +646,20 @@ return view.extend({
 				.shawnwrt-channel-section h3 { margin: 0 0 .6rem; }
 				.shawnwrt-channel-error { color: #c0392b; }
 				@media (prefers-color-scheme: dark) {
-					.shawnwrt-channel-card { background: rgba(255,255,255,.06); border-color: rgba(255,255,255,.12); }
-					.shawnwrt-channel-metrics span { color: rgba(255,255,255,.62); }
-					.shawnwrt-spectrum-section { background: rgba(255,255,255,.06); border-color: rgba(255,255,255,.12); }
-					.shawnwrt-spectrum-head small, .shawnwrt-channel-muted, .shawnwrt-spectrum-legend { color: rgba(255,255,255,.62); }
+					.shawnwrt-channel-analysis {
+						--swrt-panel: rgba(255,255,255,.06);
+						--swrt-panel-border: rgba(255,255,255,.12);
+						--swrt-muted: rgba(255,255,255,.62);
+						--swrt-spectrum-bg: rgba(255,255,255,.055);
+						--swrt-spectrum-grid: rgba(255,255,255,.16);
+						--swrt-spectrum-axis: rgba(255,255,255,.34);
+						--swrt-spectrum-label: rgba(255,255,255,.64);
+						--swrt-spectrum-label-strong: rgba(255,255,255,.82);
+						--swrt-tooltip-bg: rgba(24,27,31,.96);
+						--swrt-tooltip-fg: rgba(255,255,255,.88);
+						--swrt-tooltip-border: rgba(255,255,255,.16);
+					}
+					.shawnwrt-ap-label.is-self { fill: #ffd1aa; }
 				}
 			` ]),
 			E('div', { 'class': 'shawnwrt-channel-titlebar' }, [
