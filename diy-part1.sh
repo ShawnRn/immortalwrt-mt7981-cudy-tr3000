@@ -21,9 +21,15 @@ set -euo pipefail
 : "${GITHUB_WORKSPACE:?GITHUB_WORKSPACE must point to the firmware repo root}"
 
 # Copy custom local packages into OpenWrt tree so they are available during build.
-# luci-proto-minieap and luci-i18n-minieap-zh-cn come from the LuCI feed; copying
-# local packages with the same names creates duplicate Kconfig symbols.
-for pkg in luci-compat-keep minieap-gdufs shawnwrt-defaults shawnwrt-ota luci-app-shawnwrt-ota; do
+for pkg in \
+  luci-compat-keep \
+  luci-proto-minieap \
+  luci-i18n-minieap-zh-cn \
+  minieap-gdufs \
+  shawnwrt-defaults \
+  shawnwrt-ota \
+  luci-app-shawnwrt-ota \
+  shawnwrt-quickstart-binary; do
   if [ -d "$GITHUB_WORKSPACE/package/$pkg" ]; then
     mkdir -p package
     rm -rf "package/$pkg"
@@ -34,9 +40,7 @@ done
 rm -rf package/luci-theme-aurora \
   package/luci-app-aurora-config \
   package/luci-app-bandix \
-  package/openwrt-bandix \
-  package/luci-proto-minieap \
-  package/luci-i18n-minieap-zh-cn
+  package/openwrt-bandix
 
 git clone https://github.com/eamonxg/luci-theme-aurora package/luci-theme-aurora
 patch -d package/luci-theme-aurora -p1 < "$GITHUB_WORKSPACE/patches/luci-theme-aurora-login-perf.patch"
