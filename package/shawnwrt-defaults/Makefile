@@ -32,6 +32,9 @@ define Package/shawnwrt-defaults/install
 	$(INSTALL_DIR) $(1)/etc/init.d
 	$(INSTALL_BIN) ./files/etc/init.d/shawnwrt-quickstart-install \
 		$(1)/etc/init.d/shawnwrt-quickstart-install
+	$(INSTALL_DIR) $(1)/www/luci-static/resources/view/status
+	$(INSTALL_DATA) ./files/www/luci-static/resources/view/status/channel_analysis.js \
+		$(1)/www/luci-static/resources/view/status/channel_analysis.js
 endef
 
 $(eval $(call BuildPackage,shawnwrt-defaults))
