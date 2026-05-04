@@ -68,3 +68,15 @@ msgstr "隐藏网络"
 
 msgid "strongest"
 msgstr "最强信号"
+
+msgid "Current AP"
+msgstr "当前 AP"
+
+msgid "Higher shapes mean stronger signal"
+msgstr "图形越高，信号越强"
+
+msgid "Wireless spectrum chart"
+msgstr "无线频谱图"
+
+msgid "Each shape shows one AP by channel width and signal strength"
+msgstr "每个图形按信道宽度和信号强度表示一个 AP"

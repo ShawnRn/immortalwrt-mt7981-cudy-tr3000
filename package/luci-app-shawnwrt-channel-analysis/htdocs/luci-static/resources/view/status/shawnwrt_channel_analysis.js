@@ -26,7 +26,11 @@ var callFreqList = rpc.declare({
 });
 
 function cleanText(value) {
-	return String(value || '').replace(/[\u0000-\u001f\u007f-\u009f]/g, '').trim();
+	return String(value || '')
+		.replace(/[\u0000-\u001f\u007f-\u009f]/g, '')
+		.replace(/[\ufffd�]+/g, '')
+		.replace(/\s+/g, ' ')
+		.trim();
 }
 
 function bandFromChannel(channel) {
@@ -41,25 +45,39 @@ function bandFromChannel(channel) {
 }
 
 function channelWidth(ap) {
-	var width = ap && ap.channel_width;
+	var widths = [];
 
-	if (width)
-		return width;
+	function addWidth(value) {
+		var width = Number(value);
 
-	if (ap && ap.he_operation && ap.he_operation.channel_width)
-		return '%d MHz'.format(ap.he_operation.channel_width);
-
-	if (ap && ap.vht_operation && ap.vht_operation.channel_width) {
-		if (ap.vht_operation.channel_width == 80)
-			return '80 MHz';
-		if (ap.vht_operation.channel_width == 160)
-			return '160 MHz';
+		if ([20, 40, 80, 160, 320].indexOf(width) >= 0)
+			widths.push(width);
 	}
 
-	if (ap && ap.ht_operation && ap.ht_operation.channel_width)
-		return '%d MHz'.format(ap.ht_operation.channel_width);
+	if (!ap)
+		return '20 MHz';
+
+	addWidth(ap.channel_width);
+
+	if (ap.he_operation)
+		addWidth(ap.he_operation.channel_width);
+
+	if (ap.vht_operation)
+		addWidth(ap.vht_operation.channel_width);
+
+	if (ap.ht_operation)
+		addWidth(ap.ht_operation.channel_width);
+
+	if (widths.length)
+		return '%d MHz'.format(Math.max.apply(Math, widths));
 
 	return '20 MHz';
+}
+
+function channelWidthMHz(ap) {
+	var width = channelWidth(ap);
+	var match = String(width || '').match(/([0-9]+)/);
+	return match ? Number(match[1]) : 20;
 }
 
 function scoreChannels(freqs, aps) {
@@ -125,6 +143,64 @@ function channelStats(freqs, aps) {
 	}).sort(function(a, b) {
 		return a.channel - b.channel;
 	});
+}
+
+function colorFor(value) {
+	var hash = 0;
+	var palette = [
+		'#2e86de', '#00a8a8', '#6ab04c', '#f0932b',
+		'#be2edd', '#eb4d4b', '#22a6b3', '#badc58',
+		'#e056fd', '#686de0', '#ff7979', '#7ed6df'
+	];
+
+	value = String(value || '');
+	for (var i = 0; i < value.length; i++)
+		hash = ((hash << 5) - hash + value.charCodeAt(i)) | 0;
+
+	return palette[Math.abs(hash) % palette.length];
+}
+
+function spectrumTicks(radio, aps) {
+	var band = radio.band || bandFromChannel(radio.info.channel);
+	var seen = {};
+	var ticks = [];
+
+	function add(channel) {
+		channel = Number(channel);
+		if (channel && !seen[channel]) {
+			seen[channel] = true;
+			ticks.push(channel);
+		}
+	}
+
+	if (band === '2g') {
+		for (var ch = 1; ch <= 13; ch++)
+			add(ch);
+	}
+	else {
+		[36, 40, 44, 48, 52, 56, 60, 64, 100, 104, 108, 112, 116, 120, 124, 128, 132, 136, 140, 144, 149, 153, 157, 161, 165, 169, 173].forEach(add);
+	}
+
+	(radio.freqs || []).forEach(function(freq) { add(freq.channel); });
+	(aps || []).forEach(function(ap) { add(ap.channel); });
+	add(radio.info.channel || radio.configChannel);
+
+	return ticks.sort(function(a, b) { return a - b; });
+}
+
+function ownAp(radio) {
+	var channel = Number(radio.info.channel || radio.configChannel);
+	if (!channel)
+		return null;
+
+	return {
+		ssid: cleanText(radio.info.ssid) || _('Current AP'),
+		bssid: radio.info.bssid || radio.device,
+		channel: channel,
+		signal: -35,
+		channel_width: radio.htmode || channelWidth({}),
+		isSelf: true
+	};
 }
 
 function radioSectionName(section) {
@@ -225,50 +301,162 @@ return view.extend({
 		}
 
 		function spectrumChart(radio) {
-			var stats = channelStats(radio.freqs, radio.aps);
 			var current = Number(radio.info.channel);
-			var maxScore = Math.max.apply(Math, stats.map(function(item) {
-				return item.score;
-			}).concat([1]));
 			var best = Number(scoreChannels(radio.freqs, radio.aps));
+			var apList = radio.aps.slice();
+			var self = ownAp(radio);
+			var ticks, minCh, maxCh, signalMin = -95, signalMax = -10;
+			var width = 1200, height = 330, padL = 46, padR = 22, padT = 28, padB = 42;
+			var plotW = width - padL - padR;
+			var plotH = height - padT - padB;
+			var children = [];
 
-			return E('section', { 'class': 'shawnwrt-spectrum-section' }, [
-				E('div', { 'class': 'shawnwrt-spectrum-head' }, [
-					E('h3', [
-						radio.device,
-						' ',
-						E('small', [ radio.band === '2g' ? '2.4 GHz' : radio.band === '5g' ? '5 GHz' : radio.band ])
-					]),
-					E('span', { 'class': 'shawnwrt-channel-muted' }, [ _('Lower bars mean cleaner channels') ])
+			if (self)
+				apList.push(self);
+
+			ticks = spectrumTicks(radio, apList);
+			minCh = ticks.length ? ticks[0] : 1;
+			maxCh = ticks.length ? ticks[ticks.length - 1] : 13;
+
+			if (minCh === maxCh) {
+				minCh -= 1;
+				maxCh += 1;
+			}
+
+			function xFor(channel) {
+				channel = Number(channel);
+				return padL + ((channel - minCh) / (maxCh - minCh)) * plotW;
+			}
+
+			function yFor(signal) {
+				signal = Math.max(signalMin, Math.min(signalMax, Number(signal || signalMin)));
+				return padT + ((signalMax - signal) / (signalMax - signalMin)) * plotH;
+			}
+
+			function svgEl(name, attrs, children) {
+				var node = document.createElementNS('http://www.w3.org/2000/svg', name);
+
+				Object.keys(attrs || {}).forEach(function(key) {
+					node.setAttribute(key, attrs[key]);
+				});
+
+				(children || []).forEach(function(child) {
+					if (child == null)
+						return;
+					if (typeof child === 'string')
+						node.appendChild(document.createTextNode(child));
+					else
+						node.appendChild(child);
+				});
+
+				return node;
+			}
+
+			function apShape(ap, index) {
+				var signal = Number(ap.signal);
+				var widthMHz = channelWidthMHz(ap);
+				var span = (widthMHz / 20) * 2;
+				var left = Math.max(minCh, Number(ap.channel) - span);
+				var right = Math.min(maxCh, Number(ap.channel) + span);
+				var x1 = xFor(left);
+				var x2 = xFor(right);
+				var y = yFor(signal);
+				var color = ap.isSelf ? '#f2994a' : colorFor(ap.bssid || ap.ssid || index);
+				var title = [
+					ap.ssid || _('hidden'),
+					'Ch. %s'.format(ap.channel),
+					'%s MHz'.format(widthMHz),
+					'%s dBm'.format(signal)
+				].join(', ');
+
+				return svgEl('g', { 'class': ap.isSelf ? 'shawnwrt-ap-shape is-self' : 'shawnwrt-ap-shape' }, [
+					svgEl('title', {}, [ title ]),
+					svgEl('rect', {
+						'x': x1.toFixed(1),
+						'y': y.toFixed(1),
+						'width': Math.max(6, x2 - x1).toFixed(1),
+						'height': (padT + plotH - y).toFixed(1),
+						'rx': '7',
+						'style': ap.isSelf ? 'fill:url(#shawnwrt-hatch);stroke:#f2994a' : 'fill:%s;stroke:%s'.format(color, color)
+					}),
+					svgEl('text', {
+						'x': ((x1 + x2) / 2).toFixed(1),
+						'y': Math.max(18, y - 7).toFixed(1),
+						'class': ap.isSelf ? 'shawnwrt-ap-label is-self' : 'shawnwrt-ap-label'
+					}, [ ap.ssid || _('hidden') ])
+				]);
+			}
+
+			var svgNodes = [
+				svgEl('defs', {}, [
+					svgEl('pattern', { 'id': 'shawnwrt-hatch', 'width': '8', 'height': '8', 'patternUnits': 'userSpaceOnUse', 'patternTransform': 'rotate(35)' }, [
+						svgEl('rect', { 'width': '8', 'height': '8', 'fill': 'rgba(242,153,74,.42)' }),
+						svgEl('line', { 'x1': '0', 'y1': '0', 'x2': '0', 'y2': '8', 'stroke': 'rgba(255,255,255,.62)', 'stroke-width': '3' })
+					])
 				]),
-				radio.scanning ? E('p', { 'class': 'shawnwrt-channel-muted' }, [ _('Scanning nearby APs...') ]) : null,
-				radio.scanError ? E('p', { 'class': 'shawnwrt-channel-error' }, [ radio.scanError ]) : null,
-				E('div', { 'class': 'shawnwrt-spectrum-chart' }, stats.map(function(item) {
-					var height = Math.max(8, Math.round((item.score / maxScore) * 100));
-					var cls = 'shawnwrt-spectrum-bar';
+				svgEl('rect', { 'x': padL, 'y': padT, 'width': plotW, 'height': plotH, 'rx': '8', 'class': 'shawnwrt-spectrum-bg' })
+			];
 
-					if (item.channel === current)
-						cls += ' is-current';
-					if (item.channel === best)
-						cls += ' is-best';
+			[-10, -20, -30, -40, -50, -60, -70, -80, -90].forEach(function(dbm) {
+				var y = yFor(dbm);
+				svgNodes.push(svgEl('g', {}, [
+					svgEl('line', { 'x1': padL, 'x2': padL + plotW, 'y1': y, 'y2': y, 'class': 'shawnwrt-spectrum-grid' }),
+					svgEl('text', { 'x': padL - 10, 'y': y + 4, 'class': 'shawnwrt-spectrum-y', 'text-anchor': 'end' }, [ String(dbm) ])
+				]));
+			});
 
-					return E('div', {
-						'class': cls,
-						'title': _('Channel') + ' ' + item.channel + ': ' + item.aps + ' APs, ' + _('strongest') + ' ' + item.strongest + ' dBm'
-					}, [
-						E('div', { 'class': 'shawnwrt-spectrum-column' }, [
-							E('span', { 'style': 'height:%d%%'.format(height) })
-						]),
-						E('b', [ String(item.channel) ]),
-						E('em', [ String(item.aps) ])
-					]);
-				})),
-				E('div', { 'class': 'shawnwrt-spectrum-legend' }, [
-					E('span', { 'class': 'is-current' }, [ _('Current channel') ]),
-					E('span', { 'class': 'is-best' }, [ _('Suggested channel') ]),
-					E('span', [ _('Number below each bar is nearby AP count') ])
-				])
-			]);
+			ticks.forEach(function(channel) {
+				var x = xFor(channel);
+				svgNodes.push(svgEl('g', {}, [
+					svgEl('line', { 'x1': x, 'x2': x, 'y1': padT + plotH, 'y2': padT + plotH + 6, 'class': 'shawnwrt-spectrum-tick' }),
+					svgEl('text', {
+						'x': x,
+						'y': padT + plotH + 26,
+						'class': Number(channel) === current ? 'shawnwrt-spectrum-x is-current' : Number(channel) === best ? 'shawnwrt-spectrum-x is-best' : 'shawnwrt-spectrum-x',
+						'text-anchor': 'middle'
+					}, [ String(channel) ])
+				]));
+			});
+
+			apList.sort(function(a, b) {
+				return Number(a.signal || -95) - Number(b.signal || -95);
+			}).forEach(function(ap, index) {
+				svgNodes.push(apShape(ap, index));
+			});
+
+			svgNodes.push(svgEl('line', { 'x1': padL, 'x2': padL + plotW, 'y1': padT + plotH, 'y2': padT + plotH, 'class': 'shawnwrt-spectrum-axis' }));
+
+			children.push(E('div', { 'class': 'shawnwrt-spectrum-head' }, [
+				E('h3', [
+					radio.device,
+					' ',
+					E('small', [ radio.band === '2g' ? '2.4 GHz' : radio.band === '5g' ? '5 GHz' : radio.band ])
+				]),
+				E('span', { 'class': 'shawnwrt-channel-muted' }, [ _('Higher shapes mean stronger signal') ])
+			]));
+
+			if (radio.scanning)
+				children.push(E('p', { 'class': 'shawnwrt-channel-muted' }, [ _('Scanning nearby APs...') ]));
+			if (radio.scanError)
+				children.push(E('p', { 'class': 'shawnwrt-channel-error' }, [ radio.scanError ]));
+
+			children.push(E('div', { 'class': 'shawnwrt-spectrum-scroll' }, [
+				svgEl('svg', {
+					'class': 'shawnwrt-spectrum-svg',
+					'viewBox': '0 0 %d %d'.format(width, height),
+					'preserveAspectRatio': 'none',
+					'role': 'img',
+					'aria-label': _('Wireless spectrum chart')
+				}, svgNodes)
+			]));
+
+			children.push(E('div', { 'class': 'shawnwrt-spectrum-legend' }, [
+				E('span', { 'class': 'is-current' }, [ _('Current channel') ]),
+				E('span', { 'class': 'is-best' }, [ _('Suggested channel') ]),
+				E('span', [ _('Each shape shows one AP by channel width and signal strength') ])
+			]));
+
+			return E('section', { 'class': 'shawnwrt-spectrum-section' }, children);
 		}
 
 		function scanTable(radio) {
@@ -384,18 +572,23 @@ return view.extend({
 				.shawnwrt-spectrum-head { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; margin-bottom: .75rem; }
 				.shawnwrt-spectrum-head h3 { margin: 0; }
 				.shawnwrt-spectrum-head small, .shawnwrt-channel-muted { color: rgba(0,0,0,.56); font-weight: 500; }
-				.shawnwrt-spectrum-chart { display: flex; align-items: end; gap: .35rem; height: 15rem; padding: .75rem .5rem .35rem; border-radius: 8px; background: linear-gradient(to top, rgba(0,0,0,.06), rgba(0,0,0,.015)); overflow-x: auto; }
-				.shawnwrt-spectrum-bar { flex: 1 0 2.2rem; min-width: 2.2rem; display: grid; grid-template-rows: 1fr auto auto; gap: .2rem; text-align: center; color: rgba(0,0,0,.68); }
-				.shawnwrt-spectrum-column { display: flex; align-items: end; justify-content: center; min-height: 0; }
-				.shawnwrt-spectrum-column span { width: 70%; min-height: .35rem; border-radius: 6px 6px 2px 2px; background: linear-gradient(180deg, #5dade2, #2874a6); box-shadow: 0 6px 16px rgba(40,116,166,.20); }
-				.shawnwrt-spectrum-bar.is-current .shawnwrt-spectrum-column span { background: linear-gradient(180deg, #f39c12, #d35400); }
-				.shawnwrt-spectrum-bar.is-best .shawnwrt-spectrum-column span { background: linear-gradient(180deg, #58d68d, #229954); }
-				.shawnwrt-spectrum-bar b { font-size: .82rem; line-height: 1.1; }
-				.shawnwrt-spectrum-bar em { font-size: .75rem; font-style: normal; opacity: .62; }
+				.shawnwrt-spectrum-scroll { overflow-x: auto; border-radius: 8px; background: #050a2f; }
+				.shawnwrt-spectrum-svg { display: block; width: 100%; min-width: 54rem; height: 21rem; }
+				.shawnwrt-spectrum-bg { fill: #050a2f; }
+				.shawnwrt-spectrum-grid { stroke: rgba(255,255,255,.18); stroke-dasharray: 3 5; }
+				.shawnwrt-spectrum-axis, .shawnwrt-spectrum-tick { stroke: rgba(255,255,255,.52); }
+				.shawnwrt-spectrum-y { fill: #20e34b; font-size: .9rem; font-weight: 700; }
+				.shawnwrt-spectrum-x { fill: rgba(255,255,255,.62); font-size: .85rem; font-weight: 650; }
+				.shawnwrt-spectrum-x.is-current { fill: #f2994a; }
+				.shawnwrt-spectrum-x.is-best { fill: #2ecc71; }
+				.shawnwrt-ap-shape rect { fill-opacity: .20; stroke-opacity: .78; stroke-width: 2.2; }
+				.shawnwrt-ap-shape.is-self rect { fill: url(#shawnwrt-hatch); fill-opacity: .72; stroke: #f2994a !important; stroke-width: 3; }
+				.shawnwrt-ap-label { fill: rgba(255,255,255,.72); font-size: .86rem; font-weight: 750; text-anchor: middle; paint-order: stroke; stroke: rgba(5,10,47,.62); stroke-width: 3; stroke-linejoin: round; pointer-events: none; }
+				.shawnwrt-ap-label.is-self { fill: #ffd9bd; font-size: .95rem; }
 				.shawnwrt-spectrum-legend { display: flex; flex-wrap: wrap; gap: .6rem 1rem; margin-top: .7rem; color: rgba(0,0,0,.6); font-size: .9rem; }
-				.shawnwrt-spectrum-legend span::before { content: ''; display: inline-block; width: .7rem; height: .7rem; border-radius: .2rem; background: #2874a6; margin-right: .35rem; vertical-align: -.05rem; }
-				.shawnwrt-spectrum-legend .is-current::before { background: #d35400; }
-				.shawnwrt-spectrum-legend .is-best::before { background: #229954; }
+				.shawnwrt-spectrum-legend span::before { content: ''; display: inline-block; width: .7rem; height: .7rem; border-radius: .2rem; background: #2e86de; margin-right: .35rem; vertical-align: -.05rem; }
+				.shawnwrt-spectrum-legend .is-current::before { background: #f2994a; }
+				.shawnwrt-spectrum-legend .is-best::before { background: #2ecc71; }
 				.shawnwrt-channel-section { margin-top: 1rem; overflow-x: auto; }
 				.shawnwrt-channel-section h3 { margin: 0 0 .6rem; }
 				.shawnwrt-channel-error { color: #c0392b; }
@@ -403,9 +596,7 @@ return view.extend({
 					.shawnwrt-channel-card { background: rgba(255,255,255,.06); border-color: rgba(255,255,255,.12); }
 					.shawnwrt-channel-metrics span { color: rgba(255,255,255,.62); }
 					.shawnwrt-spectrum-section { background: rgba(255,255,255,.06); border-color: rgba(255,255,255,.12); }
-					.shawnwrt-spectrum-chart { background: linear-gradient(to top, rgba(255,255,255,.08), rgba(255,255,255,.02)); }
 					.shawnwrt-spectrum-head small, .shawnwrt-channel-muted, .shawnwrt-spectrum-legend { color: rgba(255,255,255,.62); }
-					.shawnwrt-spectrum-bar { color: rgba(255,255,255,.72); }
 				}
 			` ]),
 			E('div', { 'class': 'shawnwrt-channel-titlebar' }, [
