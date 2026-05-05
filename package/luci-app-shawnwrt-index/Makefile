@@ -1,11 +1,11 @@
 include $(TOPDIR)/rules.mk
 
-PKG_NAME:=luci-app-shawnwrt-channel-analysis
-PKG_VERSION:=1.0.1
-PKG_RELEASE:=1
+PKG_NAME:=luci-app-shawnwrt-index
+PKG_VERSION:=0.12.9
+PKG_RELEASE:=r1
 
-LUCI_TITLE:=ShawnWrt MTK channel analysis
-LUCI_DEPENDS:=+rpcd-mod-iwinfo
+LUCI_TITLE:=ShawnWrt QuickStart homepage
+LUCI_DEPENDS:=+luci-base +luci-lua-runtime
 LUCI_PKGARCH:=all
 PKG_MAINTAINER:=Shawn Rain
 

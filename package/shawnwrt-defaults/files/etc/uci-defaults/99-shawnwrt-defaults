@@ -43,11 +43,9 @@ commit nginx
 EOF
 fi
 
-if uci -q show luci >/dev/null 2>&1; then
-	uci -q get luci.main >/dev/null 2>&1 || uci -q set luci.main='core'
-	uci -q set luci.main.default_url='/cgi-bin/luci/admin/quickstart'
+	uci -q set luci.main.default_url='/cgi-bin/luci/admin/index'
+	uci -q set luci.main.index='/admin/index'
 	uci -q commit luci
-fi
 
 if [ -d /www ]; then
 	cat > /www/index.html <<'EOF'
