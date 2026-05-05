@@ -24,6 +24,15 @@ if uci -q show wireless >/dev/null 2>&1; then
 		[ "$mode" = "ap" ] || continue
 		uci -q set wireless.${iface}.ssid="${SSID}"
 		uci -q set wireless.${iface}.disabled='0'
+		# Stability: Disable unstable RSSI kickout/steering triggers in mt_wifi driver
+		uci -q delete wireless.${iface}.kicklow
+		uci -q delete wireless.${iface}.assocthres
+		uci -q delete wireless.${iface}.steeringthresold
+	done
+	# Stability: Favor HE80 on 5G for better thermal and driver stability
+	for dev in $(uci -q show wireless | sed -n "s/^wireless\\.\\([^.=]*\\)=wifi-device.*/\\1/p"); do
+		band="$(uci -q get wireless.${dev}.band)"
+		[ "$band" = "5g" ] && uci -q set wireless.${dev}.htmode='HE80'
 	done
 	uci -q commit wireless
 fi
@@ -43,19 +52,27 @@ commit nginx
 EOF
 fi
 
+if uci -q show rpcd >/dev/null 2>&1; then
+	uci -q set rpcd.@rpcd[0].timeout='300'
+	uci -q commit rpcd
+fi
+
+if uci -q show luci >/dev/null 2>&1; then
+	uci -q get luci.main >/dev/null 2>&1 || uci -q set luci.main='core'
 	uci -q set luci.main.default_url='/cgi-bin/luci/admin/index'
 	uci -q set luci.main.index='/admin/index'
 	uci -q commit luci
+fi
 
 if [ -d /www ]; then
 	cat > /www/index.html <<'EOF'
 <!doctype html>
 <html>
 <head>
-<meta http-equiv="refresh" content="0; url=/cgi-bin/luci/admin/quickstart">
+<meta http-equiv="refresh" content="0; url=/cgi-bin/luci/admin/index">
 </head>
 <body>
-<a href="/cgi-bin/luci/admin/quickstart">QuickStart</a>
+<a href="/cgi-bin/luci/admin/index">ShawnWrt Index</a>
 </body>
 </html>
 EOF
