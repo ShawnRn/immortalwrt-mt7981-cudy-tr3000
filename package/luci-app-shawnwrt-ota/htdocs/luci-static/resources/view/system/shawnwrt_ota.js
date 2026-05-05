@@ -9,16 +9,18 @@ var L = {
 	title: zh ? 'ShawnWrt 在线升级' : _('ShawnWrt OTA'),
 	subtitle: zh ? '自动判断当前系统是否已是最新版本。有更新时再下载、校验并安装。' : _('Automatically checks whether this router is current. Download, verify, and install only when an update is available.'),
 	currentTitle: zh ? '已是最新版本' : _('Already up to date'),
-	currentText: zh ? '当前系统已经安装最新发布版本，无需操作。' : _('This router is already running the latest release. No action is needed.'),
+	currentText: zh ? '当前固件内置版本与云端最新 Release 一致，无需操作。' : _('The firmware version embedded in this router matches the latest cloud release. No action is needed.'),
 	updateTitle: zh ? '发现新版本' : _('Update available'),
-	updateText: zh ? '可以先测试升级，确认通过后再安装。安装会保留配置并重启路由器。' : _('Run the upgrade test first, then install. Configuration will be preserved and the router will reboot.'),
+	updateText: zh ? '当前固件版本与云端最新 Release 不一致。可以先测试升级，确认通过后再安装。' : _('The installed firmware version does not match the latest cloud release. Run the upgrade test first, then install.'),
 	pendingTitle: zh ? '安装已启动' : _('Installation started'),
 	pendingText: zh ? '固件刷写已经交给系统后台执行。请等待路由器自动重启，期间不要断电。' : _('Firmware installation is running in the background. Wait for the router to reboot and do not power it off.'),
 	unknownTitle: zh ? '无法判断当前版本' : _('Current version unknown'),
-	unknownText: zh ? '这是旧版 OTA 首次记录前的状态。若你刚刚手动刷入了最新固件，可以点击“标记为已安装”。' : _('This can happen before the OTA helper has recorded an installed release. If you just flashed the latest image manually, mark it as installed.'),
-	installedRelease: zh ? '当前已安装' : _('Installed release'),
+	unknownText: zh ? '当前固件没有内置 ShawnWrt 版本标识；OTA 历史记录不会再被当成当前固件。可以直接测试或安装云端最新版来恢复精确判断。' : _('This firmware does not include an embedded ShawnWrt version marker. OTA history is no longer treated as proof of the installed firmware. Test or install the latest cloud release to restore exact detection.'),
+	installedRelease: zh ? '当前固件版本' : _('Firmware version'),
+	recordedRelease: zh ? 'OTA 记录版本' : _('OTA recorded version'),
+	openwrtRelease: zh ? 'OpenWrt 发行号' : _('OpenWrt release'),
 	detectedBoard: zh ? '设备目标' : _('Detected board'),
-	latestRelease: zh ? '最新版本' : _('Latest release'),
+	latestRelease: zh ? '云端最新版本' : _('Latest cloud release'),
 	firmwareImage: zh ? '固件文件' : _('Firmware image'),
 	fileSize: zh ? '文件大小' : _('File size'),
 	sha256: 'SHA256',
@@ -26,6 +28,9 @@ var L = {
 	noInfo: zh ? '暂无 OTA 信息。' : _('No OTA information available.'),
 	done: zh ? '完成。' : _('Done.'),
 	failed: zh ? '命令执行失败，请查看下方输出。' : _('Command failed. Check the output below.'),
+	jobStarted: zh ? '任务已启动，正在后台执行。' : _('Task started in the background.'),
+	jobRunning: zh ? '任务仍在执行，页面会自动刷新输出。' : _('The task is still running. Output will refresh automatically.'),
+	jobFailed: zh ? '任务执行失败，请查看下方输出。' : _('Task failed. Check the output below.'),
 	checkOk: zh ? '检查完成。' : _('Update check completed.'),
 	testOk: zh ? '测试通过，可以安装。' : _('Upgrade test passed. You can install the update.'),
 	downloadOk: zh ? '下载并校验完成。' : _('Download and verification completed.'),
@@ -39,6 +44,9 @@ var L = {
 	downloadLine: zh ? '固件路径' : _('Firmware path'),
 	stateLine: zh ? '状态' : _('State'),
 	installedLine: zh ? '当前已安装' : _('Installed'),
+	systemLine: zh ? '固件内置版本' : _('Firmware marker'),
+	recordedLine: zh ? 'OTA 记录版本' : _('OTA record'),
+	openwrtLine: zh ? 'OpenWrt 发行号' : _('OpenWrt release'),
 	latestLine: zh ? '最新版本' : _('Latest'),
 	check: zh ? '检查更新' : _('Check'),
 	test: zh ? '测试升级' : _('Test upgrade'),
@@ -156,6 +164,10 @@ return view.extend({
 			return escapeText(value).replace(/^sha256:/, '');
 		}
 
+		function latestTag() {
+			return info.CLOUD_TAG || info.TAG;
+		}
+
 		function row(label, value, mono) {
 			return E('div', { 'class': 'shawnwrt-ota-row' }, [
 				E('div', { 'class': 'shawnwrt-ota-label' }, [label]),
@@ -187,15 +199,53 @@ return view.extend({
 			return showResultWithMessage(result);
 		}
 
+		function sleep(ms) {
+			return new Promise(function(resolve) {
+				window.setTimeout(resolve, ms);
+			});
+		}
+
 		function formatOutput(text) {
 			var lines = escapeText(text).trim().split(/\n/);
 			var mapped = [];
+			var seenCloudTag = false;
 
 			lines.forEach(function(line) {
 				var value;
 
 				if (!line)
 					return;
+
+				if (line === 'LOG_BEGIN' || line === 'LOG_END')
+					return;
+
+				if (line.indexOf('JOB=started') === 0) {
+					mapped.push(L.jobStarted);
+					return;
+				}
+
+				if (line.indexOf('JOB=running') === 0) {
+					mapped.push(L.jobRunning);
+					return;
+				}
+
+				if (line.indexOf('JOB_RUNNING=') === 0) {
+					if (line.slice(12) === '1')
+						mapped.push(L.jobRunning);
+					return;
+				}
+
+				if (line.indexOf('JOB_EXIT=') === 0) {
+					value = line.slice(9);
+					if (value && value !== '0')
+						mapped.push(L.jobFailed + ' exit=' + value);
+					return;
+				}
+
+				if (line.indexOf('JOB_LOG=') === 0) {
+					mapped.push(L.installLogLine + ': ' + line.slice(8));
+					return;
+				}
 
 				if (line === 'TEST=ok') {
 					mapped.push(L.testPassedLine);
@@ -238,6 +288,21 @@ return view.extend({
 					return;
 				}
 
+				if (line.indexOf('SYSTEM_TAG=') === 0) {
+					mapped.push(L.systemLine + ': ' + (line.slice(11) || L.unknown));
+					return;
+				}
+
+				if (line.indexOf('RECORDED_TAG=') === 0) {
+					mapped.push(L.recordedLine + ': ' + (line.slice(13) || L.unknown));
+					return;
+				}
+
+				if (line.indexOf('OPENWRT_RELEASE=') === 0) {
+					mapped.push(L.openwrtLine + ': ' + (line.slice(16) || L.unknown));
+					return;
+				}
+
 				if (line.indexOf('PENDING_TAG=') === 0) {
 					value = line.slice(12);
 					if (value)
@@ -245,7 +310,15 @@ return view.extend({
 					return;
 				}
 
+				if (line.indexOf('CLOUD_TAG=') === 0) {
+					seenCloudTag = true;
+					mapped.push(L.latestLine + ': ' + line.slice(10));
+					return;
+				}
+
 				if (line.indexOf('TAG=') === 0) {
+					if (seenCloudTag)
+						return;
 					mapped.push(L.latestLine + ': ' + line.slice(4));
 					return;
 				}
@@ -324,6 +397,50 @@ return view.extend({
 			});
 		}
 
+		function pollJob(successMessage) {
+			return runOta(['job-status']).then(function(result) {
+				var job = parseInfo(result.stdout);
+				var running = job.JOB_RUNNING === '1';
+				var exitCode = job.JOB_EXIT;
+
+				showResultWithMessage({
+					ok: result.ok && (!exitCode || exitCode === '0' || running),
+					stdout: result.stdout,
+					stderr: result.stderr,
+					code: result.code
+				});
+
+				if (running)
+					return sleep(2500).then(function() {
+						return pollJob(successMessage);
+					});
+
+				if (exitCode && exitCode !== '0') {
+					ui.addNotification(null, E('p', L.jobFailed), 'danger');
+					return;
+				}
+
+				if (successMessage)
+					ui.addNotification(null, E('p', successMessage), 'success');
+
+				return runOta(['status']).then(refreshStatus);
+			});
+		}
+
+		function backgroundAction(button, command, successMessage) {
+			setBusy(button, true);
+
+			return runOta(['start', command]).then(function(result) {
+				showResultWithMessage(result);
+				if (!result.ok)
+					return;
+
+				return pollJob(successMessage);
+			}).finally(function() {
+				setBusy(button, false);
+			});
+		}
+
 		function refreshStatus(result) {
 			showResult(result);
 			if (result.ok) {
@@ -365,9 +482,11 @@ return view.extend({
 
 		function summaryRows() {
 			return [
-				row(L.installedRelease, info.INSTALLED_TAG || L.unknown, false),
+				row(L.installedRelease, info.SYSTEM_TAG || L.unknown, false),
+				row(L.latestRelease, latestTag(), false),
+				row(L.recordedRelease, info.RECORDED_TAG || L.unknown, false),
+				row(L.openwrtRelease, info.OPENWRT_RELEASE || L.unknown, false),
 				row(L.detectedBoard, boardName, true),
-				row(L.latestRelease, info.TAG, false),
 				row(L.firmwareImage, info.ASSET, true),
 				row(L.fileSize, fileSize(info.SIZE), false),
 				row(L.sha256, digestValue(info.DIGEST), true)
@@ -380,7 +499,7 @@ return view.extend({
 			if (state === 'update')
 				buttons = buttons.concat([testButton, downloadButton, installButton]);
 			else if (state === 'unknown')
-				buttons.push(markButton);
+				buttons = buttons.concat([testButton, downloadButton, installButton]);
 
 			return buttons;
 		}
@@ -413,11 +532,11 @@ return view.extend({
 		});
 
 		testButton.addEventListener('click', function() {
-			return action(testButton, ['test'], L.testOk);
+			return backgroundAction(testButton, 'test', L.testOk);
 		});
 
 		downloadButton.addEventListener('click', function() {
-			return action(downloadButton, ['download'], L.downloadOk);
+			return backgroundAction(downloadButton, 'download', L.downloadOk);
 		});
 
 		markButton.addEventListener('click', function() {
@@ -438,16 +557,16 @@ return view.extend({
 					' ',
 					E('button', {
 						'class': 'btn cbi-button-negative',
-						'click': function() {
-							ui.hideModal();
-							return action(installButton, ['install'], L.installStarted);
-						}
+							'click': function() {
+								ui.hideModal();
+								return backgroundAction(installButton, 'install', L.installStarted);
+							}
 					}, [L.install])
 				])
 			]);
 		});
 
-		return E('div', { 'class': 'cbi-map shawnwrt-ota' }, [
+		return E('div', { 'class': 'shawnwrt-ota' }, [
 			E('style', {}, [`
 				.shawnwrt-ota {
 					--swrt-map-bg: var(--panel-bg, var(--background-color-high, #fff));
@@ -466,7 +585,13 @@ return view.extend({
 					--swrt-button-bg: rgba(0,0,0,.045);
 					color: var(--swrt-text);
 				}
-				.shawnwrt-ota.cbi-map { background: var(--swrt-map-bg); border-color: var(--swrt-border); color: var(--swrt-text); }
+				.shawnwrt-ota {
+					box-sizing: border-box;
+					padding: 0;
+					background: transparent !important;
+					border: 0 !important;
+					box-shadow: none !important;
+				}
 				@media (prefers-color-scheme: dark) {
 					.shawnwrt-ota {
 						--swrt-map-bg: var(--panel-bg, #1d293d);
@@ -506,8 +631,29 @@ return view.extend({
 					--swrt-unknown-border: rgba(147, 197, 253, .38);
 					--swrt-button-bg: rgba(255,255,255,.09);
 				}
-				.shawnwrt-ota-titlebar { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
-				.shawnwrt-ota-titlebar h2 { margin-right: auto; }
+				.shawnwrt-ota-titlebar {
+					display: flex;
+					align-items: center;
+					justify-content: space-between;
+					gap: 1rem;
+					margin: 0 0 .65rem;
+					padding: 0;
+					background: transparent !important;
+					border: 0 !important;
+					box-shadow: none !important;
+				}
+				.shawnwrt-ota-title {
+					margin: 0;
+					padding: 0;
+					background: transparent !important;
+					border: 0 !important;
+					box-shadow: none !important;
+					color: var(--swrt-text);
+					font-size: 1.55rem;
+					line-height: 1.2;
+					font-weight: 700;
+				}
+				.shawnwrt-ota-help-button { margin-left: auto; }
 				.shawnwrt-ota-help-button {
 					display: inline-flex;
 					align-items: center;
@@ -638,7 +784,7 @@ return view.extend({
 					padding-top: .85rem;
 					border-top: 1px solid var(--swrt-border-soft, rgba(0,0,0,.10));
 				}
-				.shawnwrt-ota .cbi-map-descr { margin-bottom: 1.25rem; max-width: 780px; color: var(--swrt-text-muted); }
+				.shawnwrt-ota-subtitle { margin: 0 0 1.25rem; max-width: 780px; color: var(--swrt-text-muted); line-height: 1.55; }
 				.shawnwrt-ota-panel { border: 1px solid var(--swrt-border); border-radius: 10px; padding: 1rem; background: var(--swrt-surface); }
 				.shawnwrt-ota-state { border-radius: 10px; padding: 1rem; margin-bottom: 1rem; border: 1px solid var(--swrt-border-soft); }
 				.shawnwrt-ota-state h3 { margin: 0 0 .3rem; font-size: 1.2rem; color: var(--swrt-text); }
@@ -676,10 +822,10 @@ return view.extend({
 				}
 			`]),
 			E('div', { 'class': 'shawnwrt-ota-titlebar' }, [
-				E('h2', L.title),
+				E('div', { 'class': 'shawnwrt-ota-title' }, [L.title]),
 				helpButton
 			]),
-			E('div', { 'class': 'cbi-map-descr' }, [L.subtitle]),
+			E('div', { 'class': 'shawnwrt-ota-subtitle' }, [L.subtitle]),
 			E('div', { 'class': 'shawnwrt-ota-panel' }, [
 				stateBox,
 				grid,
