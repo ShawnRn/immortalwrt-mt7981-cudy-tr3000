@@ -63,9 +63,4 @@ if [ -d /www ]; then
 EOF
 fi
 
-mkdir -p /etc/opkg
-touch /etc/opkg/customfeeds.conf
-grep -qF "${PACKAGES_FEED}" /etc/opkg/customfeeds.conf || echo "${PACKAGES_FEED}" >> /etc/opkg/customfeeds.conf
-grep -qF "${KIDDIN9_FEED}" /etc/opkg/customfeeds.conf || echo "${KIDDIN9_FEED}" >> /etc/opkg/customfeeds.conf
-
 exit 0

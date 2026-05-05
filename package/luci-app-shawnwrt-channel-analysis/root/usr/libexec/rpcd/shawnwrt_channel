@@ -34,7 +34,10 @@ if method == "call" then
 				ssid = ssid:match("^(.-)%s*$")
 				
 				if bssid:match("^[0-9A-F]+:[0-9A-F]+:[0-9A-F]+:[0-9A-F]+:[0-9A-F]+:[0-9A-F]+$") then
-					bssidToSsid[bssid] = ssid
+					bssidToSsid[bssid] = {
+						ssid = ssid,
+						raw = line
+					}
 				end
 			end
 		end

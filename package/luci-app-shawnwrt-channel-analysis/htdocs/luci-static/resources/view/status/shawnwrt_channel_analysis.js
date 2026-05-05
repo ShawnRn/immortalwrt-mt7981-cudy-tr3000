@@ -387,8 +387,9 @@ return view.extend({
 			}
 
 			function tooltipRows(ap, widthMHz) {
+				var kvrText = ap.kvr ? ' (802.11' + ap.kvr.split('').join('/') + ')' : '';
 				return [
-					E('b', [ ap.ssid || _('hidden') ]),
+					E('b', [ (ap.ssid || _('hidden')) + kvrText ]),
 					E('span', [ _('BSSID'), ': ', ap.bssid || '-' ]),
 					E('span', [ _('Channel'), ': ', String(ap.channel || '-') ]),
 					E('span', [ _('Channel Width'), ': ', '%s MHz'.format(widthMHz) ]),
@@ -572,8 +573,9 @@ return view.extend({
 				return E('div', { 'class': 'shawnwrt-aplist' }, [ E('p', { 'class': 'shawnwrt-channel-muted' }, [ _('No scan results. Try refreshing after a few seconds.') ]) ]);
 			var items = sorted.map(function(ap) {
 				var sigPct = Math.min(100, Math.max(0, (Number(ap.signal || -100) + 100) * 1.25));
+				var badge = ap.kvr ? E('span', { 'class': 'shawnwrt-apitem-kvr' }, [ap.kvr.toUpperCase()]) : '';
 				return E('div', { 'class': 'shawnwrt-apitem' }, [
-					E('span', { 'class': 'shawnwrt-apitem-ssid' }, [ ap.ssid || _('hidden') ]),
+					E('span', { 'class': 'shawnwrt-apitem-ssid' }, [ (ap.ssid || _('hidden')), badge ]),
 					E('span', { 'class': 'shawnwrt-apitem-ch' }, [ 'CH ' + (ap.channel || '-') ]),
 					E('span', { 'class': 'shawnwrt-apitem-sig' }, [
 						E('span', { 'class': 'shawnwrt-apitem-bar', 'style': 'width:' + sigPct + '%' }),
@@ -651,9 +653,44 @@ return view.extend({
 						return ap && ap.channel && bandFromChannel(ap.channel) === radio.band;
 					}).map(function(ap) {
 						var bssid = (ap.bssid || '').toUpperCase();
+						ap.kvr = '';
 						if (siteSurveyResults && siteSurveyResults[bssid]) {
-							ap.ssid = siteSurveyResults[bssid];
+							var surveyData = siteSurveyResults[bssid];
+							if (typeof surveyData === 'string') {
+								ap.ssid = surveyData;
+							} else {
+								ap.ssid = surveyData.ssid;
+								var raw = surveyData.raw || '';
+								var k = raw.match(/\b11K|YES\s+(YES|NO)\s+(YES|NO)\s*$/i) ? 'k' : '';
+								var v = raw.match(/\b11V|(YES|NO)\s+YES\s+(YES|NO)\s*$/i) ? 'v' : '';
+								var r = raw.match(/\b11R|(YES|NO)\s+(YES|NO)\s+YES\s*$/i) ? 'r' : '';
+								if (raw.match(/11kvr/i)) {
+									k = 'k'; v = 'v'; r = 'r';
+								} else if (raw.match(/([kK][vV][rR]|[kK][vV]|[kK][rR]|[vV][rR])\b/)) {
+									var match = raw.match(/([kK][vV][rR]|[kK][vV]|[kK][rR]|[vV][rR])\b/)[1].toLowerCase();
+									if (match.indexOf('k') >= 0) k = 'k';
+									if (match.indexOf('v') >= 0) v = 'v';
+									if (match.indexOf('r') >= 0) r = 'r';
+								}
+								// Some outputs just have "1 1 1" or "1/1/1"
+								var flags = k + v + r;
+								if (flags) {
+									ap.kvr = flags;
+								}
+							}
 						}
+						
+						// Fallback to iwinfo encryption string if available
+						if (!ap.kvr && ap.encryption && ap.encryption.description) {
+							var desc = ap.encryption.description;
+							var fk = desc.indexOf('802.11k') >= 0 ? 'k' : '';
+							var fv = desc.indexOf('802.11v') >= 0 ? 'v' : '';
+							var fr = desc.indexOf('802.11r') >= 0 ? 'r' : '';
+							if (fk || fv || fr) {
+								ap.kvr = fk + fv + fr;
+							}
+						}
+						
 						ap.ssid = cleanText(ap.ssid) || _('hidden');
 						ap.band = ap.band || bandFromChannel(ap.channel);
 						return ap;
@@ -733,10 +770,10 @@ return view.extend({
 				.shawnwrt-channel-card h3 { margin: 0; font-size: 1rem; }
 				.shawnwrt-channel-card small { opacity: .65; font-weight: 500; }
 				.shawnwrt-channel-pill { border-radius: 999px; padding: .15rem .5rem; background: rgba(52,152,219,.14); color: #1f6f9f; font-weight: 700; font-size: .8rem; }
-				.shawnwrt-channel-metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: .5rem; }
+				.shawnwrt-channel-metrics { display: grid; grid-template-columns: repeat(2, 1fr); gap: .8rem .5rem; margin: .8rem 0; }
 				.shawnwrt-channel-metrics div { min-width: 0; }
-				.shawnwrt-channel-metrics b { display: block; font-size: 1.15rem; line-height: 1.2; }
-				.shawnwrt-channel-metrics span { color: var(--swrt-muted); font-size: .78rem; }
+				.shawnwrt-channel-metrics b { display: block; font-size: 1.25rem; font-weight: 700; line-height: 1.2; color: var(--swrt-text); }
+				.shawnwrt-channel-metrics span { color: var(--swrt-muted); font-size: .8rem; font-weight: 500; }
 				.shawnwrt-channel-apply { margin-top: .6rem; width: 100%; }
 				@keyframes shawnwrt-spin { to { transform: rotate(360deg); } }
 				.shawnwrt-spinner { display: inline-block; width: 1.05em; height: 1.05em; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: shawnwrt-spin .72s linear infinite; vertical-align: -.12em; opacity: .86; transform-origin: center; }
@@ -783,7 +820,8 @@ return view.extend({
 				.shawnwrt-aplist { border: 1px solid var(--swrt-panel-border); border-radius: 10px; background: var(--swrt-panel); padding: .5rem; max-height: 18rem; overflow-y: auto; }
 				.shawnwrt-apitem { display: grid; grid-template-columns: 1fr auto 7rem; gap: .4rem; align-items: center; padding: .35rem .5rem; border-radius: 6px; font-size: .82rem; }
 				.shawnwrt-apitem:hover { background: rgba(0,0,0,.04); }
-				.shawnwrt-apitem-ssid { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+				.shawnwrt-apitem-ssid { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: flex; align-items: center; gap: .3rem; }
+				.shawnwrt-apitem-kvr { flex-shrink: 0; font-size: .6rem; padding: .08rem .25rem; border-radius: 4px; background: rgba(0,0,0,.08); color: var(--swrt-muted); font-weight: 700; }
 				.shawnwrt-apitem-ch { color: var(--swrt-muted); font-size: .75rem; font-weight: 600; white-space: nowrap; }
 				.shawnwrt-apitem-sig { display: flex; align-items: center; gap: .3rem; position: relative; }
 				.shawnwrt-apitem-sig > span:last-child { font-size: .72rem; color: var(--swrt-muted); min-width: 2rem; text-align: right; }
