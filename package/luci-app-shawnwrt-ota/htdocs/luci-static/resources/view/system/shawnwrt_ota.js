@@ -52,7 +52,8 @@ return view.extend({
 	load: function() {
 		return Promise.all([
 			runOta(['board']),
-			runOta(['status'])
+			runOta(['status']),
+			runOta(['job-status'])
 		]);
 	},
 
@@ -60,6 +61,7 @@ return view.extend({
 		var self = this;
 		var boardId = data[0].stdout || 'unknown';
 		var statusInfo = parseInfo(data[1].stdout);
+		var jobInfo = parseInfo(data[2].stdout);
 		
 		var container = E('div', { 'id': 'swrt-ota-root', 'class': 'swrt-ota-wrap' });
 		
@@ -284,6 +286,7 @@ return view.extend({
 		}
 
 		function startCheck() {
+			if (actionBtn.disabled) return;
 			actionBtn.disabled = true;
 			actionBtn.textContent = L.checking;
 			runOta(['start', 'check']).then(function() {
@@ -306,6 +309,8 @@ return view.extend({
 		}
 
 		function startInstall() {
+			if (actionBtn.disabled) return;
+			actionBtn.disabled = true;
 			actionBtn.style.display = 'none';
 			progressContainer.style.display = 'block';
 			statusTitle.textContent = L.downloading;
@@ -374,7 +379,14 @@ return view.extend({
 			});
 		}
 
-		if (statusInfo.STATE === 'need_check' || !statusInfo.CLOUD_TAG) {
+		if (jobInfo.JOB_RUNNING === '1') {
+			var cmd = jobInfo.JOB_COMMAND;
+			if (cmd === 'all' || cmd === 'download' || cmd === 'install' || cmd === 'test') {
+				actionBtn.style.display = 'none';
+				progressContainer.style.display = 'block';
+			}
+			pollJob();
+		} else if (statusInfo.STATE === 'need_check' || !statusInfo.CLOUD_TAG) {
 			startCheck();
 		} else {
 			updateUI(statusInfo);

@@ -525,7 +525,7 @@ return view.extend({
 			});
 
 			apList.sort(function(a, b) {
-				return Number(a.signal || -95) - Number(b.signal || -95);
+				return Number(b.signal || -95) - Number(a.signal || -95);
 			}).forEach(function(ap, index) {
 				svgNodes.push(apShape(ap, index));
 			});
