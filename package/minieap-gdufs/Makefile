@@ -11,6 +11,13 @@ PKG_MIRROR_HASH:=skip
 
 include $(INCLUDE_DIR)/package.mk
 
+define Build/Prepare
+	$(call Build/Prepare/Default)
+	grep -q 'minieap_init_func\.lds' $(PKG_BUILD_DIR)/Makefile || \
+		$(SED) '/^COMMON_LDFLAGS :=/a COMMON_LDFLAGS += -T minieap_init_func.lds' \
+			$(PKG_BUILD_DIR)/Makefile
+endef
+
 define Package/minieap-gdufs
   SECTION:=net
   CATEGORY:=Network

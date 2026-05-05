@@ -2,7 +2,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=luci-app-shawnwrt-channel-analysis
 PKG_VERSION:=1.0.0
-PKG_RELEASE:=r5
+PKG_RELEASE:=r8
 
 LUCI_TITLE:=ShawnWrt MTK channel analysis
 LUCI_DEPENDS:=+rpcd-mod-iwinfo

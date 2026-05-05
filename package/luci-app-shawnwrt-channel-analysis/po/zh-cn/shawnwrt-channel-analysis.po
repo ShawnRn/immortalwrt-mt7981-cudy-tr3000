@@ -87,5 +87,158 @@ msgstr "图形越高，信号越强"
 msgid "Wireless spectrum chart"
 msgstr "无线频谱图"
 
+msgid "Toggle fullscreen"
+msgstr "切换全屏"
+
 msgid "Each shape shows one AP by channel width and signal strength"
 msgstr "每个图形按信道宽度和信号强度表示一个 AP"
+
+msgid "Coverage Control"
+msgstr "覆盖控制"
+
+msgid "Spectrum overview"
+msgstr "频谱概览"
+
+msgid "High-performance roaming"
+msgstr "高性能漫游"
+
+msgid "Prefer strong clients and fast roaming. Edge clients may disconnect earlier."
+msgstr "优先保证强信号客户端和快速漫游，边缘弱信号客户端会更早断开。"
+
+msgid "Small room / dorm"
+msgstr "小户型/宿舍"
+
+msgid "Lower 2.4 GHz power and keep 5 GHz strong for close-range Apple-friendly roaming."
+msgstr "降低 2.4 GHz 功率并保持 5 GHz 较强，适合近距离和 Apple 设备漫游。"
+
+msgid "Balanced home"
+msgstr "均衡住宅"
+
+msgid "General-purpose coverage and roaming balance for ordinary apartments."
+msgstr "适合普通住宅的覆盖和漫游折中方案。"
+
+msgid "Multi-wall home"
+msgstr "多墙住宅"
+
+msgid "Relax weak-signal rules and keep both radios strong for rooms behind walls."
+msgstr "放宽弱信号规则并保持双频较强，适合隔墙较多的房间。"
+
+msgid "IoT stability"
+msgstr "IoT 稳定"
+
+msgid "Avoid kicking weak IoT clients and reduce roaming features that old devices dislike."
+msgstr "避免踢掉弱信号 IoT 设备，并减少老设备可能不兼容的漫游功能。"
+
+msgid "Maximum coverage"
+msgstr "最强覆盖"
+
+msgid "Use maximum power and disable weak-signal kicking for the farthest corners."
+msgstr "使用最高功率并关闭弱信号剔除，照顾最远角落。"
+
+msgid "Custom"
+msgstr "自定义"
+
+msgid "Generated from the coverage slider."
+msgstr "由覆盖倾向滑块生成。"
+
+msgid "Current configuration"
+msgstr "当前配置"
+
+msgid "Loaded from current wireless settings."
+msgstr "已从当前无线配置读取。"
+
+msgid "No wireless changes to apply."
+msgstr "没有需要应用的无线更改。"
+
+msgid "Apply coverage control"
+msgstr "应用覆盖控制"
+
+msgid "The following wireless options will be changed. Wi-Fi clients may briefly disconnect."
+msgstr "将修改以下无线选项。Wi-Fi 客户端可能会短暂断开。"
+
+msgid "Apply changes"
+msgstr "应用更改"
+
+msgid "Apply failed: %s"
+msgstr "应用失败：%s"
+
+msgid "Open network"
+msgstr "开放网络"
+
+msgid "No MTK wireless radios were found."
+msgstr "没有找到 MTK 无线射频。"
+
+msgid "No AP interfaces were found."
+msgstr "没有找到 AP 接口。"
+
+msgid "Both 2.4 GHz and 5 GHz radios are required for dual-band coverage presets."
+msgstr "双频覆盖预设需要同时存在 2.4 GHz 和 5 GHz 射频。"
+
+msgid "Coverage tendency"
+msgstr "覆盖倾向"
+
+msgid "Move left to avoid long-tail weak clients, or right for maximum coverage."
+msgstr "向左避免长尾弱信号客户端，向右追求最强覆盖。"
+
+msgid "Avoid long-tail"
+msgstr "避免长尾"
+
+msgid "Small room"
+msgstr "小空间"
+
+msgid "Balanced"
+msgstr "均衡"
+
+msgid "Multi-wall"
+msgstr "多墙"
+
+msgid "Presets"
+msgstr "预设"
+
+msgid "Manual tuning"
+msgstr "手动微调"
+
+msgid "Tx power"
+msgstr "发射功率"
+
+msgid "2.4 GHz power"
+msgstr "2.4 GHz 功率"
+
+msgid "5 GHz power"
+msgstr "5 GHz 功率"
+
+msgid "Kick RSSI"
+msgstr "弱信号剔除"
+
+msgid "Association RSSI"
+msgstr "接入信号门槛"
+
+msgid "Steering RSSI"
+msgstr "引导信号门槛"
+
+msgid "Band steering"
+msgstr "双频引导"
+
+msgid "Dual-band same SSID"
+msgstr "双频合一"
+
+msgid "802.11k neighbor report"
+msgstr "802.11k 邻居报告"
+
+msgid "802.11r fast roaming"
+msgstr "802.11r 快速漫游"
+
+msgid "Unified SSID"
+msgstr "统一 SSID"
+
+msgid "Unified encryption"
+msgstr "统一加密方式"
+
+msgid "Unified password"
+msgstr "统一密码"
+
+msgid "Change preview"
+msgstr "变更预览"
+
+msgid "Review these UCI changes before applying."
+msgstr "应用前请确认这些 UCI 变更。"

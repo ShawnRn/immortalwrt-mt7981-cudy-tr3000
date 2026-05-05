@@ -29,8 +29,6 @@ define Package/shawnwrt-defaults/install
 	$(INSTALL_DIR) $(1)/etc/opkg/keys
 	$(INSTALL_DATA) ./files/etc/opkg/keys/9143bef47f03c381 \
 		$(1)/etc/opkg/keys/9143bef47f03c381
-	$(INSTALL_DATA) ./files/etc/opkg/customfeeds.conf \
-		$(1)/etc/opkg/customfeeds.conf
 endef
 
 $(eval $(call BuildPackage,shawnwrt-defaults))

@@ -230,12 +230,53 @@ function nodeId(prefix, radio) {
 	return prefix + '-' + String(radio.device || radio.sid).replace(/[^A-Za-z0-9_-]/g, '_');
 }
 
+function bandTitle(band) {
+	if (band === '2g')
+		return '2.4 GHz';
+	if (band === '5g')
+		return '5 GHz';
+	if (band === '6g')
+		return '6 GHz';
+	return band || '-';
+}
+
+function boolValue(value) {
+	return value === true || value === 1 || value === '1' || value === 'true';
+}
+
+function primaryIface(radio) {
+	var ifaces = radio.ifaces || [];
+
+	for (var i = 0; i < ifaces.length; i++) {
+		if (uci.get('wireless', ifaces[i]['.name'], 'mode') === 'ap' && uci.get('wireless', ifaces[i]['.name'], 'disabled') !== '1')
+			return ifaces[i];
+	}
+
+	return ifaces[0] || null;
+}
+
+function currentIfaceValue(iface, option, fallback) {
+	return iface ? (uci.get('wireless', iface['.name'], option) || fallback || '') : (fallback || '');
+}
+
+function currentRadioValue(radio, option, fallback) {
+	return radio ? (uci.get('wireless', radio.sid, option) || fallback || '') : (fallback || '');
+}
+
+function clampPct(value) {
+	value = Number(value);
+	if (!isFinite(value))
+		value = 50;
+	return Math.max(0, Math.min(100, value));
+}
+
 return view.extend({
 	load: function() {
 		return uci.load('wireless').then(function() {
 			var sections = uci.sections('wireless', 'wifi-device').filter(function(section) {
 				return uci.get('wireless', section['.name'], 'type') === 'mtwifi';
 			});
+			var ifaces = uci.sections('wireless', 'wifi-iface');
 
 			return Promise.all(sections.map(function(section) {
 				var sid = section['.name'];
@@ -245,17 +286,20 @@ return view.extend({
 					L.resolveDefault(callInfo(device), {}),
 					L.resolveDefault(callFreqList(device), [])
 				]).then(function(data) {
-					return {
-						sid: sid,
-						device: device,
-						band: uci.get('wireless', sid, 'band') || bandFromChannel(data[0].channel),
-						configChannel: uci.get('wireless', sid, 'channel') || '-',
-						htmode: uci.get('wireless', sid, 'htmode') || data[0].htmode || '-',
-						info: data[0],
-					freqs: data[1] || [],
-						aps: [],
-						scanned: false,
-						scanning: false,
+						return {
+							sid: sid,
+							device: device,
+							band: uci.get('wireless', sid, 'band') || bandFromChannel(data[0].channel),
+							configChannel: uci.get('wireless', sid, 'channel') || '-',
+							htmode: uci.get('wireless', sid, 'htmode') || data[0].htmode || '-',
+							info: data[0],
+							freqs: data[1] || [],
+							ifaces: ifaces.filter(function(iface) {
+								return uci.get('wireless', iface['.name'], 'device') === sid;
+							}),
+							aps: [],
+							scanned: false,
+							scanning: false,
 						scanError: null,
 						subBand: null
 					};
@@ -265,6 +309,14 @@ return view.extend({
 	},
 
 	render: function(radios) {
+		var activePage = window.location.hash === '#coverage' ? 'coverage' : 'analysis';
+
+		function compactChildren(children) {
+			return children.filter(function(child) {
+				return child !== null && child !== undefined && child !== false;
+			});
+		}
+
 		function applySuggestedChannel(radio, suggested) {
 			return ui.showModal(_('Apply suggested channel'), [
 				E('p', [
@@ -387,9 +439,8 @@ return view.extend({
 			}
 
 			function tooltipRows(ap, widthMHz) {
-				var kvrText = ap.kvr ? ' (802.11' + ap.kvr.split('').join('/') + ')' : '';
 				return [
-					E('b', [ (ap.ssid || _('hidden')) + kvrText ]),
+					E('b', [ ap.ssid || _('hidden') ]),
 					E('span', [ _('BSSID'), ': ', ap.bssid || '-' ]),
 					E('span', [ _('Channel'), ': ', String(ap.channel || '-') ]),
 					E('span', [ _('Channel Width'), ': ', '%s MHz'.format(widthMHz) ]),
@@ -573,9 +624,8 @@ return view.extend({
 				return E('div', { 'class': 'shawnwrt-aplist' }, [ E('p', { 'class': 'shawnwrt-channel-muted' }, [ _('No scan results. Try refreshing after a few seconds.') ]) ]);
 			var items = sorted.map(function(ap) {
 				var sigPct = Math.min(100, Math.max(0, (Number(ap.signal || -100) + 100) * 1.25));
-				var badge = ap.kvr ? E('span', { 'class': 'shawnwrt-apitem-kvr' }, [ap.kvr.toUpperCase()]) : '';
 				return E('div', { 'class': 'shawnwrt-apitem' }, [
-					E('span', { 'class': 'shawnwrt-apitem-ssid' }, [ (ap.ssid || _('hidden')), badge ]),
+					E('span', { 'class': 'shawnwrt-apitem-ssid' }, [ ap.ssid || _('hidden') ]),
 					E('span', { 'class': 'shawnwrt-apitem-ch' }, [ 'CH ' + (ap.channel || '-') ]),
 					E('span', { 'class': 'shawnwrt-apitem-sig' }, [
 						E('span', { 'class': 'shawnwrt-apitem-bar', 'style': 'width:' + sigPct + '%' }),
@@ -653,44 +703,9 @@ return view.extend({
 						return ap && ap.channel && bandFromChannel(ap.channel) === radio.band;
 					}).map(function(ap) {
 						var bssid = (ap.bssid || '').toUpperCase();
-						ap.kvr = '';
 						if (siteSurveyResults && siteSurveyResults[bssid]) {
-							var surveyData = siteSurveyResults[bssid];
-							if (typeof surveyData === 'string') {
-								ap.ssid = surveyData;
-							} else {
-								ap.ssid = surveyData.ssid;
-								var raw = surveyData.raw || '';
-								var k = raw.match(/\b11K|YES\s+(YES|NO)\s+(YES|NO)\s*$/i) ? 'k' : '';
-								var v = raw.match(/\b11V|(YES|NO)\s+YES\s+(YES|NO)\s*$/i) ? 'v' : '';
-								var r = raw.match(/\b11R|(YES|NO)\s+(YES|NO)\s+YES\s*$/i) ? 'r' : '';
-								if (raw.match(/11kvr/i)) {
-									k = 'k'; v = 'v'; r = 'r';
-								} else if (raw.match(/([kK][vV][rR]|[kK][vV]|[kK][rR]|[vV][rR])\b/)) {
-									var match = raw.match(/([kK][vV][rR]|[kK][vV]|[kK][rR]|[vV][rR])\b/)[1].toLowerCase();
-									if (match.indexOf('k') >= 0) k = 'k';
-									if (match.indexOf('v') >= 0) v = 'v';
-									if (match.indexOf('r') >= 0) r = 'r';
-								}
-								// Some outputs just have "1 1 1" or "1/1/1"
-								var flags = k + v + r;
-								if (flags) {
-									ap.kvr = flags;
-								}
-							}
+							ap.ssid = siteSurveyResults[bssid];
 						}
-						
-						// Fallback to iwinfo encryption string if available
-						if (!ap.kvr && ap.encryption && ap.encryption.description) {
-							var desc = ap.encryption.description;
-							var fk = desc.indexOf('802.11k') >= 0 ? 'k' : '';
-							var fv = desc.indexOf('802.11v') >= 0 ? 'v' : '';
-							var fr = desc.indexOf('802.11r') >= 0 ? 'r' : '';
-							if (fk || fv || fr) {
-								ap.kvr = fk + fv + fr;
-							}
-						}
-						
 						ap.ssid = cleanText(ap.ssid) || _('hidden');
 						ap.band = ap.band || bandFromChannel(ap.channel);
 						return ap;
@@ -729,19 +744,616 @@ return view.extend({
 			if (btn) {
 				setScanButton(true);
 			}
-			return Promise.all(radios.map(scanRadio)).finally(function() {
-				var wait = Math.max(0, 650 - (Date.now() - startedAt));
-				return new Promise(function(resolve) {
-					window.setTimeout(function() {
-						setScanButton(false);
-						resolve();
-					}, wait);
+				return Promise.all(radios.map(scanRadio)).finally(function() {
+					var wait = Math.max(0, 650 - (Date.now() - startedAt));
+					return new Promise(function(resolve) {
+						window.setTimeout(function() {
+							setScanButton(false);
+							resolve();
+						}, wait);
+					});
 				});
-			});
-		}
+			}
 
-		var root = E('div', { 'class': 'cbi-map shawnwrt-channel-analysis' }, [
-			E('style', {}, [ `
+			function radioByBand(band) {
+				for (var i = 0; i < radios.length; i++) {
+					if (radios[i].band === band)
+						return radios[i];
+				}
+				return null;
+			}
+
+			function apIfaces() {
+				var result = [];
+
+				radios.forEach(function(radio) {
+					(radio.ifaces || []).forEach(function(iface) {
+						if (uci.get('wireless', iface['.name'], 'mode') === 'ap')
+							result.push(iface);
+					});
+				});
+
+				return result;
+			}
+
+			function primaryApIfaces() {
+				var result = [];
+
+				radios.forEach(function(radio) {
+					var iface = primaryIface(radio);
+
+					if (iface && result.indexOf(iface) < 0)
+						result.push(iface);
+				});
+
+				return result;
+			}
+
+			function firstApIface() {
+				var list = primaryApIfaces();
+				return list[0] || null;
+			}
+
+			function sameBandCredentials() {
+				var first = firstApIface();
+				var list = primaryApIfaces();
+
+				if (!first || list.length < 2)
+					return false;
+
+				return list.every(function(iface) {
+					return currentIfaceValue(iface, 'ssid') === currentIfaceValue(first, 'ssid') &&
+						currentIfaceValue(iface, 'encryption') === currentIfaceValue(first, 'encryption') &&
+						currentIfaceValue(iface, 'key') === currentIfaceValue(first, 'key');
+				});
+			}
+
+			var coveragePoints = [
+				{
+					level: 0,
+					id: 'performance',
+					title: _('High-performance roaming'),
+					desc: _('Prefer strong clients and fast roaming. Edge clients may disconnect earlier.'),
+					tx2g: 35,
+					tx5g: 100,
+					kicklow: -72,
+					assocthres: -78,
+					steeringthresold: -62,
+					bandsteering: '1',
+					unify: '1',
+					ieee80211k: '1',
+					ieee80211r: '1'
+				},
+				{
+					level: 25,
+					id: 'small',
+					title: _('Small room / dorm'),
+					desc: _('Lower 2.4 GHz power and keep 5 GHz strong for close-range Apple-friendly roaming.'),
+					tx2g: 50,
+					tx5g: 100,
+					kicklow: -78,
+					assocthres: -82,
+					steeringthresold: -66,
+					bandsteering: '1',
+					unify: '1',
+					ieee80211k: '1',
+					ieee80211r: '1'
+				},
+				{
+					level: 50,
+					id: 'balanced',
+					title: _('Balanced home'),
+					desc: _('General-purpose coverage and roaming balance for ordinary apartments.'),
+					tx2g: 75,
+					tx5g: 100,
+					kicklow: -82,
+					assocthres: -86,
+					steeringthresold: -70,
+					bandsteering: '1',
+					unify: '1',
+					ieee80211k: '1',
+					ieee80211r: '0'
+				},
+				{
+					level: 75,
+					id: 'walls',
+					title: _('Multi-wall home'),
+					desc: _('Relax weak-signal rules and keep both radios strong for rooms behind walls.'),
+					tx2g: 100,
+					tx5g: 100,
+					kicklow: -88,
+					assocthres: -90,
+					steeringthresold: -78,
+					bandsteering: '1',
+					unify: '1',
+					ieee80211k: '1',
+					ieee80211r: '0'
+				},
+				{
+					level: 88,
+					id: 'iot',
+					title: _('IoT stability'),
+					desc: _('Avoid kicking weak IoT clients and reduce roaming features that old devices dislike.'),
+					tx2g: 100,
+					tx5g: 75,
+					kicklow: 0,
+					assocthres: 0,
+					steeringthresold: 0,
+					bandsteering: '0',
+					unify: '0',
+					ieee80211k: '0',
+					ieee80211r: '0'
+				},
+				{
+					level: 100,
+					id: 'maximum',
+					title: _('Maximum coverage'),
+					desc: _('Use maximum power and disable weak-signal kicking for the farthest corners.'),
+					tx2g: 100,
+					tx5g: 100,
+					kicklow: 0,
+					assocthres: 0,
+					steeringthresold: 0,
+					bandsteering: '0',
+					unify: '0',
+					ieee80211k: '0',
+					ieee80211r: '0'
+				}
+			];
+
+			function pointAt(level) {
+				level = clampPct(level);
+
+				for (var i = 0; i < coveragePoints.length; i++) {
+					if (level === coveragePoints[i].level)
+						return Object.assign({}, coveragePoints[i]);
+					if (level < coveragePoints[i].level) {
+						var left = coveragePoints[Math.max(0, i - 1)];
+						var right = coveragePoints[i];
+						var span = right.level - left.level || 1;
+						var ratio = (level - left.level) / span;
+						var nearest = ratio < .5 ? left : right;
+
+						return {
+							level: level,
+							id: 'custom',
+							title: _('Custom'),
+							desc: _('Generated from the coverage slider.'),
+							tx2g: Math.round(left.tx2g + (right.tx2g - left.tx2g) * ratio),
+							tx5g: Math.round(left.tx5g + (right.tx5g - left.tx5g) * ratio),
+							kicklow: Math.round(left.kicklow + (right.kicklow - left.kicklow) * ratio),
+							assocthres: Math.round(left.assocthres + (right.assocthres - left.assocthres) * ratio),
+							steeringthresold: Math.round(left.steeringthresold + (right.steeringthresold - left.steeringthresold) * ratio),
+							bandsteering: nearest.bandsteering,
+							unify: nearest.unify,
+							ieee80211k: nearest.ieee80211k,
+							ieee80211r: nearest.ieee80211r
+						};
+					}
+				}
+
+				return Object.assign({}, coveragePoints[coveragePoints.length - 1]);
+			}
+
+			function inferCoverageLevel(state) {
+				var bestLevel = 50;
+				var bestScore = Infinity;
+
+				function numericScore(a, b, weight) {
+					a = Number(a);
+					b = Number(b);
+
+					if (!isFinite(a) || !isFinite(b))
+						return 0;
+
+					return Math.abs(a - b) * weight;
+				}
+
+				function boolScore(a, b, weight) {
+					return String(a) === String(b) ? 0 : weight;
+				}
+
+				for (var level = 0; level <= 100; level += 5) {
+					var point = pointAt(level);
+					var score =
+						numericScore(state.tx2g, point.tx2g, .45) +
+						numericScore(state.tx5g, point.tx5g, .35) +
+						numericScore(state.kicklow, point.kicklow, .75) +
+						numericScore(state.assocthres, point.assocthres, .55) +
+						numericScore(state.steeringthresold, point.steeringthresold, .55) +
+						boolScore(state.bandsteering, point.bandsteering, 10) +
+						boolScore(state.unify, point.unify, 6) +
+						boolScore(state.ieee80211k, point.ieee80211k, 4) +
+						boolScore(state.ieee80211r, point.ieee80211r, 4);
+
+					if (score < bestScore) {
+						bestScore = score;
+						bestLevel = level;
+					}
+				}
+
+				return bestLevel;
+			}
+
+			function coverageFromCurrent() {
+				var radio2g = radioByBand('2g');
+				var radio5g = radioByBand('5g');
+				var first = firstApIface();
+
+				var state = {
+					level: 50,
+					id: 'current',
+					title: _('Current configuration'),
+					desc: _('Loaded from current wireless settings.'),
+					tx2g: Number(currentRadioValue(radio2g, 'txpower', '75')),
+					tx5g: Number(currentRadioValue(radio5g, 'txpower', '100')),
+					kicklow: Number(currentIfaceValue(first, 'kicklow', '0')),
+					assocthres: Number(currentIfaceValue(first, 'assocthres', '0')),
+					steeringthresold: Number(currentIfaceValue(first, 'steeringthresold', '0')),
+					bandsteering: currentRadioValue(radio2g || radio5g, 'bandsteering', '0'),
+					unify: sameBandCredentials() ? '1' : '0',
+					ieee80211k: currentIfaceValue(first, 'ieee80211k', '0'),
+					ieee80211r: currentIfaceValue(first, 'ieee80211r', '0'),
+					ssid: currentIfaceValue(first, 'ssid'),
+					encryption: currentIfaceValue(first, 'encryption', 'sae-mixed'),
+					key: currentIfaceValue(first, 'key')
+				};
+				var inferredLevel = inferCoverageLevel(state);
+				var preset = coveragePoints.filter(function(point) {
+					return point.level === inferredLevel;
+				})[0];
+
+				state.level = inferredLevel;
+				if (preset && Number(state.tx2g) === Number(preset.tx2g) &&
+						Number(state.tx5g) === Number(preset.tx5g) &&
+						Number(state.kicklow) === Number(preset.kicklow) &&
+						Number(state.assocthres) === Number(preset.assocthres) &&
+						Number(state.steeringthresold) === Number(preset.steeringthresold) &&
+						String(state.bandsteering) === String(preset.bandsteering) &&
+						String(state.unify) === String(preset.unify) &&
+						String(state.ieee80211k) === String(preset.ieee80211k) &&
+						String(state.ieee80211r) === String(preset.ieee80211r))
+					state.id = preset.id;
+
+				return state;
+			}
+
+			var coverageState = coverageFromCurrent();
+
+			function withCredentials(state) {
+				var first = firstApIface();
+
+				state.ssid = state.ssid != null ? state.ssid : currentIfaceValue(first, 'ssid');
+				state.encryption = state.encryption != null ? state.encryption : currentIfaceValue(first, 'encryption', 'sae-mixed');
+				state.key = state.key != null ? state.key : currentIfaceValue(first, 'key');
+				return state;
+			}
+
+			function setCoverageState(next) {
+				coverageState = withCredentials(Object.assign({}, coverageState, next));
+				refreshCoverage();
+			}
+
+			function addChange(changes, section, option, value) {
+				if (!section || value == null)
+					return;
+
+				var oldValue = uci.get('wireless', section, option);
+				var newValue = String(value);
+
+				if (String(oldValue == null ? '' : oldValue) !== newValue) {
+					changes.push({
+						section: section,
+						option: option,
+						oldValue: oldValue == null ? '' : String(oldValue),
+						newValue: newValue
+					});
+				}
+			}
+
+			function coverageChanges() {
+				var changes = [];
+				var radio2g = radioByBand('2g');
+				var radio5g = radioByBand('5g');
+				var ifaces = apIfaces();
+				var primaryIfaces = primaryApIfaces();
+
+				addChange(changes, radio2g && radio2g.sid, 'txpower', coverageState.tx2g);
+				addChange(changes, radio5g && radio5g.sid, 'txpower', coverageState.tx5g);
+				radios.forEach(function(radio) {
+					addChange(changes, radio.sid, 'bandsteering', coverageState.bandsteering);
+				});
+
+				ifaces.forEach(function(iface) {
+					var sid = iface['.name'];
+
+					addChange(changes, sid, 'kicklow', coverageState.kicklow);
+					addChange(changes, sid, 'assocthres', coverageState.assocthres);
+					addChange(changes, sid, 'steeringthresold', coverageState.steeringthresold);
+					addChange(changes, sid, 'ieee80211k', coverageState.ieee80211k);
+					addChange(changes, sid, 'ieee80211r', coverageState.ieee80211r);
+
+				});
+
+				if (coverageState.unify === '1') {
+					primaryIfaces.forEach(function(iface) {
+						var sid = iface['.name'];
+
+						addChange(changes, sid, 'ssid', coverageState.ssid);
+						addChange(changes, sid, 'encryption', coverageState.encryption);
+						addChange(changes, sid, 'key', coverageState.key);
+					});
+				}
+
+				return changes;
+			}
+
+			function applyCoverageChanges() {
+				var changes = coverageChanges();
+
+				if (!changes.length) {
+					ui.addNotification(null, E('p', [ _('No wireless changes to apply.') ]), 'info');
+					return Promise.resolve();
+				}
+
+				return ui.showModal(_('Apply coverage control'), [
+					E('p', [ _('The following wireless options will be changed. Wi-Fi clients may briefly disconnect.') ]),
+					E('div', { 'class': 'shawnwrt-diff-list' }, changes.map(function(change) {
+						return E('div', { 'class': 'shawnwrt-diff-row' }, [
+							E('code', [ 'wireless.%s.%s'.format(change.section, change.option) ]),
+							E('span', [ change.oldValue || '-' ]),
+							E('span', [ '\u2192' ]),
+							E('b', [ change.newValue || '-' ])
+						]);
+					})),
+					E('div', { 'class': 'right' }, [
+						E('button', { 'class': 'btn', 'click': ui.hideModal }, [ _('Cancel') ]),
+						' ',
+						E('button', {
+							'class': 'btn cbi-button-action important',
+							'click': function(ev) {
+								ev.currentTarget.disabled = true;
+								ev.currentTarget.classList.add('spinning');
+								changes.forEach(function(change) {
+									uci.set('wireless', change.section, change.option, change.newValue);
+								});
+								return uci.save()
+									.then(L.bind(ui.changes.init, ui.changes))
+									.then(L.bind(ui.changes.apply, ui.changes))
+									.then(function() {
+										ui.hideModal();
+										window.setTimeout(function() {
+											window.location.hash = 'coverage';
+											window.location.reload();
+										}, 900);
+									})
+									.catch(function(err) {
+										ui.hideModal();
+										ui.addNotification(null, E('p', [ _('Apply failed: %s').format(err && err.message ? err.message : err) ]), 'error');
+									});
+							}
+						}, [ _('Apply changes') ])
+					])
+				]);
+			}
+
+			function selectControl(label, value, values, onChange) {
+				return E('label', { 'class': 'shawnwrt-control-field' }, [
+					E('span', [ label ]),
+					E('select', {
+						'change': function(ev) { onChange(ev.currentTarget.value); }
+					}, values.map(function(item) {
+						var attrs = { 'value': String(item.value) };
+
+						if (String(item.value) === String(value))
+							attrs.selected = 'selected';
+
+						return E('option', attrs, [ item.label ]);
+					}))
+				]);
+			}
+
+			function numberControl(label, value, onChange) {
+				return E('label', { 'class': 'shawnwrt-control-field' }, [
+					E('span', [ label ]),
+					E('input', {
+						'type': 'number',
+						'step': '1',
+						'value': String(value),
+						'change': function(ev) { onChange(Number(ev.currentTarget.value || 0)); }
+					})
+				]);
+			}
+
+			function textControl(label, value, type, disabled, onChange) {
+				var attrs = {
+					'type': type || 'text',
+					'value': value || '',
+					'change': function(ev) { onChange(ev.currentTarget.value); }
+				};
+
+				if (disabled)
+					attrs.disabled = 'disabled';
+
+				return E('label', { 'class': 'shawnwrt-control-field' }, [
+					E('span', [ label ]),
+					E('input', attrs)
+				]);
+			}
+
+			function toggleControl(label, value, onChange) {
+				var attrs = {
+					'type': 'checkbox',
+					'change': function(ev) { onChange(ev.currentTarget.checked ? '1' : '0'); }
+				};
+
+				if (boolValue(value))
+					attrs.checked = 'checked';
+
+				return E('label', { 'class': 'shawnwrt-toggle-field' }, [
+					E('input', attrs),
+					E('span', [ label ])
+				]);
+			}
+
+			function renderCoverage() {
+				var radio2g = radioByBand('2g');
+				var radio5g = radioByBand('5g');
+				var ifaces = apIfaces();
+				var changes = coverageChanges();
+				var disabledReason = null;
+				var txValues = [
+					{ value: 25, label: '25%' },
+					{ value: 35, label: '35%' },
+					{ value: 50, label: '50%' },
+					{ value: 75, label: '75%' },
+					{ value: 100, label: '100%' }
+				];
+				var encryptionValues = [
+					{ value: 'sae-mixed', label: 'WPA2/WPA3 PSK/SAE' },
+					{ value: 'psk2', label: 'WPA2-PSK' },
+					{ value: 'sae', label: 'WPA3-SAE' },
+					{ value: 'none', label: _('Open network') }
+				];
+
+				if (!radios.length)
+					disabledReason = _('No MTK wireless radios were found.');
+				else if (!ifaces.length)
+					disabledReason = _('No AP interfaces were found.');
+				else if (!radio2g || !radio5g)
+					disabledReason = _('Both 2.4 GHz and 5 GHz radios are required for dual-band coverage presets.');
+
+				return E('div', { 'class': 'shawnwrt-coverage' }, compactChildren([
+					disabledReason ? E('p', { 'class': 'shawnwrt-channel-error' }, [ disabledReason ]) : null,
+					E('section', { 'class': 'shawnwrt-coverage-block' }, [
+						E('div', { 'class': 'shawnwrt-coverage-head' }, [
+							E('div', [
+								E('h3', [ _('Coverage tendency') ]),
+								E('p', { 'class': 'shawnwrt-channel-muted' }, [ _('Move left to avoid long-tail weak clients, or right for maximum coverage.') ])
+							]),
+							E('strong', { 'class': 'shawnwrt-coverage-level' }, [ String(coverageState.level) ])
+						]),
+						E('input', {
+							'class': 'shawnwrt-coverage-slider',
+							'type': 'range',
+							'min': '0',
+							'max': '100',
+							'step': '5',
+							'value': String(coverageState.level),
+							'input': function(ev) {
+								var badge = ev.currentTarget.closest('.shawnwrt-coverage-block').querySelector('.shawnwrt-coverage-level');
+								if (badge)
+									badge.textContent = ev.currentTarget.value;
+							},
+							'change': function(ev) {
+								setCoverageState(pointAt(ev.currentTarget.value));
+							}
+						}),
+						E('div', { 'class': 'shawnwrt-coverage-scale' }, [
+							E('span', [ _('Avoid long-tail') ]),
+							E('span', [ _('Small room') ]),
+							E('span', [ _('Balanced') ]),
+							E('span', [ _('Multi-wall') ]),
+							E('span', [ _('Maximum coverage') ])
+						])
+					]),
+					E('section', { 'class': 'shawnwrt-coverage-block' }, [
+						E('h3', [ _('Presets') ]),
+						E('div', { 'class': 'shawnwrt-preset-grid' }, coveragePoints.map(function(preset) {
+							return E('button', {
+								'class': 'shawnwrt-preset-card' + (coverageState.id === preset.id ? ' active' : ''),
+								'click': function() {
+									setCoverageState(withCredentials(Object.assign({}, preset)));
+								}
+							}, [
+								E('b', [ preset.title ]),
+								E('span', [ preset.desc ])
+							]);
+						}))
+					]),
+					E('section', { 'class': 'shawnwrt-coverage-block' }, [
+						E('h3', [ _('Manual tuning') ]),
+						E('div', { 'class': 'shawnwrt-coverage-status' }, radios.map(function(radio) {
+							var iface = primaryIface(radio);
+							return E('div', [
+								E('b', [ radio.device, ' ', bandTitle(radio.band) ]),
+								E('span', [ _('Tx power'), ': ', currentRadioValue(radio, 'txpower', '-'), '%' ]),
+								E('span', [ _('SSID'), ': ', currentIfaceValue(iface, 'ssid', '-') ])
+							]);
+						})),
+						E('div', { 'class': 'shawnwrt-control-grid' }, [
+							selectControl(_('2.4 GHz power'), coverageState.tx2g, txValues, function(value) { setCoverageState({ tx2g: Number(value), id: 'custom', title: _('Custom') }); }),
+							selectControl(_('5 GHz power'), coverageState.tx5g, txValues, function(value) { setCoverageState({ tx5g: Number(value), id: 'custom', title: _('Custom') }); }),
+							numberControl(_('Kick RSSI'), coverageState.kicklow, function(value) { setCoverageState({ kicklow: value, id: 'custom', title: _('Custom') }); }),
+							numberControl(_('Association RSSI'), coverageState.assocthres, function(value) { setCoverageState({ assocthres: value, id: 'custom', title: _('Custom') }); }),
+							numberControl(_('Steering RSSI'), coverageState.steeringthresold, function(value) { setCoverageState({ steeringthresold: value, id: 'custom', title: _('Custom') }); })
+						]),
+						E('div', { 'class': 'shawnwrt-toggle-grid' }, [
+							toggleControl(_('Band steering'), coverageState.bandsteering, function(value) { setCoverageState({ bandsteering: value, id: 'custom' }); }),
+							toggleControl(_('Dual-band same SSID'), coverageState.unify, function(value) { setCoverageState({ unify: value, id: 'custom' }); }),
+							toggleControl(_('802.11k neighbor report'), coverageState.ieee80211k, function(value) { setCoverageState({ ieee80211k: value, id: 'custom' }); }),
+							toggleControl(_('802.11r fast roaming'), coverageState.ieee80211r, function(value) { setCoverageState({ ieee80211r: value, id: 'custom' }); })
+						]),
+						E('div', { 'class': 'shawnwrt-control-grid' }, [
+							textControl(_('Unified SSID'), coverageState.ssid, 'text', coverageState.unify !== '1', function(value) { setCoverageState({ ssid: value, id: 'custom' }); }),
+							selectControl(_('Unified encryption'), coverageState.encryption, encryptionValues, function(value) { setCoverageState({ encryption: value, id: 'custom' }); }),
+							textControl(_('Unified password'), coverageState.key, 'password', coverageState.unify !== '1' || coverageState.encryption === 'none', function(value) { setCoverageState({ key: value, id: 'custom' }); })
+						])
+					]),
+					E('section', { 'class': 'shawnwrt-coverage-block' }, compactChildren([
+						E('div', { 'class': 'shawnwrt-coverage-head' }, [
+							E('div', [
+								E('h3', [ _('Change preview') ]),
+								E('p', { 'class': 'shawnwrt-channel-muted' }, [ changes.length ? _('Review these UCI changes before applying.') : _('No wireless changes to apply.') ])
+							]),
+							E('button', (function() {
+								var attrs = {
+									'class': 'btn cbi-button cbi-button-action',
+									'click': applyCoverageChanges
+								};
+
+								if (disabledReason || !changes.length)
+									attrs.disabled = 'disabled';
+
+								return attrs;
+							})(), [ _('Apply changes') ])
+						]),
+						changes.length ? E('div', { 'class': 'shawnwrt-diff-list' }, changes.map(function(change) {
+							return E('div', { 'class': 'shawnwrt-diff-row' }, [
+								E('code', [ 'wireless.%s.%s'.format(change.section, change.option) ]),
+								E('span', [ change.oldValue || '-' ]),
+								E('span', [ '\u2192' ]),
+								E('b', [ change.newValue || '-' ])
+							]);
+						})) : null
+					]))
+				]));
+			}
+
+			var coveragePanel;
+
+			function refreshCoverage() {
+				if (coveragePanel)
+					coveragePanel.replaceChildren(renderCoverage());
+			}
+
+			function switchPage(page) {
+				var panels = document.querySelectorAll('.shawnwrt-page-panel');
+				var tabs = document.querySelectorAll('.shawnwrt-page-tab');
+
+				for (var i = 0; i < panels.length; i++)
+					panels[i].classList.toggle('active', panels[i].getAttribute('data-page') === page);
+
+				for (var j = 0; j < tabs.length; j++)
+					tabs[j].classList.toggle('active', tabs[j].getAttribute('data-page') === page);
+
+				activePage = page;
+				if (window.history && window.history.replaceState)
+					window.history.replaceState(null, '', page === 'coverage' ? '#coverage' : '#analysis');
+			}
+
+			var root = E('div', { 'class': 'cbi-map shawnwrt-channel-analysis' }, [
+				E('style', {}, [ `
 				.shawnwrt-channel-analysis {
 					--swrt-panel: rgba(255,255,255,.72);
 					--swrt-panel-border: rgba(0,0,0,.10);
@@ -759,6 +1371,13 @@ return view.extend({
 				}
 				.shawnwrt-channel-titlebar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
 				.shawnwrt-channel-titlebar h2 { margin: 0; }
+				.shawnwrt-page-tabs { display: inline-flex; gap: 0; border: 1px solid var(--swrt-panel-border); border-radius: 8px; overflow: hidden; margin-bottom: 1rem; background: var(--swrt-panel); }
+				.shawnwrt-page-tab { border: none; border-radius: 0; min-height: 2.35rem; padding: .45rem 1rem; background: transparent; color: var(--swrt-muted); cursor: pointer; font-weight: 700; }
+				.shawnwrt-page-tab + .shawnwrt-page-tab { border-left: 1px solid var(--swrt-panel-border); }
+				.shawnwrt-page-tab.active { background: rgba(52,152,219,.14); color: #1f6f9f; }
+				.shawnwrt-page-tab:hover:not(.active) { background: rgba(0,0,0,.04); }
+				.shawnwrt-page-panel { display: none; }
+				.shawnwrt-page-panel.active { display: block; }
 				.shawnwrt-channel-refresh { min-width: 7.5rem; display: inline-flex; align-items: center; justify-content: center; gap: .45rem; }
 				.shawnwrt-channel-refresh.is-scanning { cursor: progress; opacity: .92; }
 				.shawnwrt-scan-inline { display: inline-flex; align-items: center; gap: .45rem; margin: .35rem 0 .55rem; }
@@ -770,10 +1389,10 @@ return view.extend({
 				.shawnwrt-channel-card h3 { margin: 0; font-size: 1rem; }
 				.shawnwrt-channel-card small { opacity: .65; font-weight: 500; }
 				.shawnwrt-channel-pill { border-radius: 999px; padding: .15rem .5rem; background: rgba(52,152,219,.14); color: #1f6f9f; font-weight: 700; font-size: .8rem; }
-				.shawnwrt-channel-metrics { display: grid; grid-template-columns: repeat(2, 1fr); gap: .8rem .5rem; margin: .8rem 0; }
+				.shawnwrt-channel-metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: .5rem; }
 				.shawnwrt-channel-metrics div { min-width: 0; }
-				.shawnwrt-channel-metrics b { display: block; font-size: 1.25rem; font-weight: 700; line-height: 1.2; color: var(--swrt-text); }
-				.shawnwrt-channel-metrics span { color: var(--swrt-muted); font-size: .8rem; font-weight: 500; }
+				.shawnwrt-channel-metrics b { display: block; font-size: 1.15rem; line-height: 1.2; }
+				.shawnwrt-channel-metrics span { color: var(--swrt-muted); font-size: .78rem; }
 				.shawnwrt-channel-apply { margin-top: .6rem; width: 100%; }
 				@keyframes shawnwrt-spin { to { transform: rotate(360deg); } }
 				.shawnwrt-spinner { display: inline-block; width: 1.05em; height: 1.05em; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: shawnwrt-spin .72s linear infinite; vertical-align: -.12em; opacity: .86; transform-origin: center; }
@@ -820,8 +1439,7 @@ return view.extend({
 				.shawnwrt-aplist { border: 1px solid var(--swrt-panel-border); border-radius: 10px; background: var(--swrt-panel); padding: .5rem; max-height: 18rem; overflow-y: auto; }
 				.shawnwrt-apitem { display: grid; grid-template-columns: 1fr auto 7rem; gap: .4rem; align-items: center; padding: .35rem .5rem; border-radius: 6px; font-size: .82rem; }
 				.shawnwrt-apitem:hover { background: rgba(0,0,0,.04); }
-				.shawnwrt-apitem-ssid { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: flex; align-items: center; gap: .3rem; }
-				.shawnwrt-apitem-kvr { flex-shrink: 0; font-size: .6rem; padding: .08rem .25rem; border-radius: 4px; background: rgba(0,0,0,.08); color: var(--swrt-muted); font-weight: 700; }
+				.shawnwrt-apitem-ssid { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 				.shawnwrt-apitem-ch { color: var(--swrt-muted); font-size: .75rem; font-weight: 600; white-space: nowrap; }
 				.shawnwrt-apitem-sig { display: flex; align-items: center; gap: .3rem; position: relative; }
 				.shawnwrt-apitem-sig > span:last-child { font-size: .72rem; color: var(--swrt-muted); min-width: 2rem; text-align: right; }
@@ -832,6 +1450,39 @@ return view.extend({
 				.shawnwrt-tab + .shawnwrt-tab { border-left: 1px solid var(--swrt-panel-border); }
 				.shawnwrt-tab.active { background: rgba(52,152,219,.14); color: #1f6f9f; }
 				.shawnwrt-tab:hover:not(.active) { background: rgba(0,0,0,.04); }
+				.shawnwrt-coverage { display: grid; gap: .9rem; }
+				.shawnwrt-coverage-block { border: 1px solid var(--swrt-panel-border); border-radius: 10px; padding: 1rem; background: var(--swrt-panel); }
+				.shawnwrt-coverage-block h3 { margin: 0 0 .65rem; font-size: 1rem; }
+				.shawnwrt-coverage-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: .75rem; }
+				.shawnwrt-coverage-head h3 { margin-bottom: .2rem; }
+				.shawnwrt-coverage-head p { margin: 0; }
+				.shawnwrt-coverage-level { min-width: 3rem; text-align: center; padding: .25rem .55rem; border-radius: 999px; background: rgba(52,152,219,.14); color: #1f6f9f; }
+				.shawnwrt-coverage-slider { width: 100%; }
+				.shawnwrt-coverage-scale { display: flex; justify-content: space-between; gap: .4rem; margin-top: .45rem; color: var(--swrt-muted); font-size: .78rem; }
+				.shawnwrt-preset-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .7rem; }
+				.shawnwrt-preset-card { min-height: 5.5rem; text-align: left; border: 1px solid var(--swrt-panel-border); border-radius: 8px; padding: .8rem; background: rgba(255,255,255,.42); color: inherit; cursor: pointer; transition: border-color .15s, background .15s, transform .15s; }
+				.shawnwrt-preset-card:hover { border-color: rgba(52,152,219,.42); transform: translateY(-1px); }
+				.shawnwrt-preset-card.active { border-color: rgba(52,152,219,.72); background: rgba(52,152,219,.12); }
+				.shawnwrt-preset-card b { display: block; margin-bottom: .35rem; }
+				.shawnwrt-preset-card span { display: block; color: var(--swrt-muted); font-size: .8rem; line-height: 1.35; }
+				.shawnwrt-coverage-status { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .65rem; margin-bottom: .85rem; }
+				.shawnwrt-coverage-status > div { display: grid; gap: .22rem; border: 1px solid var(--swrt-panel-border); border-radius: 8px; padding: .65rem; }
+				.shawnwrt-coverage-status span { color: var(--swrt-muted); font-size: .82rem; }
+				.shawnwrt-control-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .7rem; margin-top: .7rem; }
+				.shawnwrt-control-field { display: grid; gap: .3rem; min-width: 0; font-weight: 700; color: var(--swrt-muted); font-size: .8rem; }
+				.shawnwrt-control-field input, .shawnwrt-control-field select { width: 100%; min-height: 2.35rem; box-sizing: border-box; }
+				.shawnwrt-toggle-grid { display: flex; flex-wrap: wrap; gap: .55rem .9rem; margin-top: .8rem; }
+				.shawnwrt-toggle-field { display: inline-flex; align-items: center; gap: .38rem; min-height: 2.2rem; font-weight: 700; }
+				.shawnwrt-diff-list { display: grid; gap: .4rem; max-height: 20rem; overflow-y: auto; }
+				.shawnwrt-diff-row { display: grid; grid-template-columns: minmax(12rem, 1.4fr) minmax(4rem, .8fr) auto minmax(4rem, .8fr); gap: .45rem; align-items: center; border: 1px solid var(--swrt-panel-border); border-radius: 7px; padding: .45rem .55rem; }
+				.shawnwrt-diff-row code { overflow-wrap: anywhere; }
+				.shawnwrt-diff-row span { color: var(--swrt-muted); overflow-wrap: anywhere; }
+				.shawnwrt-diff-row b { overflow-wrap: anywhere; }
+				@media (max-width: 960px) {
+					.shawnwrt-preset-grid, .shawnwrt-coverage-status, .shawnwrt-control-grid { grid-template-columns: 1fr; }
+					.shawnwrt-coverage-scale { font-size: .7rem; }
+					.shawnwrt-diff-row { grid-template-columns: 1fr; }
+				}
 				@media (prefers-color-scheme: dark) {
 					.shawnwrt-channel-analysis {
 						--swrt-panel: rgba(255,255,255,.06);
@@ -850,21 +1501,36 @@ return view.extend({
 					.shawnwrt-apitem:hover { background: rgba(255,255,255,.06); }
 					.shawnwrt-spectrum-section.is-fullscreen { background: #1a1d21; }
 					.shawnwrt-spectrum-scroll, .shawnwrt-spectrum-svg { background: #23272e; }
+					.shawnwrt-page-tab.active { background: rgba(52,152,219,.22); color: #5dade2; }
+					.shawnwrt-page-tab:hover:not(.active) { background: rgba(255,255,255,.06); }
 					.shawnwrt-tab.active { background: rgba(52,152,219,.22); color: #5dade2; }
 					.shawnwrt-tab:hover:not(.active) { background: rgba(255,255,255,.06); }
+					.shawnwrt-preset-card { background: rgba(255,255,255,.04); }
+					.shawnwrt-preset-card.active { background: rgba(52,152,219,.18); }
 				}
 			` ]),
 			E('div', { 'class': 'shawnwrt-channel-titlebar' }, [
-				E('h2', [ _('Channel Analysis') ]),
-				E('button', {
-					'class': 'btn cbi-button cbi-button-action shawnwrt-channel-refresh',
-					'click': scanAll
-				}, [ _('Refresh Channels') ])
+				E('h2', [ _('Channel Analysis') ])
 			]),
-			E('div', { 'class': 'shawnwrt-dual-col' }, radios.map(renderRadio))
+			E('div', { 'class': 'shawnwrt-page-tabs' }, [
+				E('button', { 'class': 'shawnwrt-page-tab' + (activePage === 'analysis' ? ' active' : ''), 'data-page': 'analysis', 'click': function() { switchPage('analysis'); } }, [ _('Channel Analysis') ]),
+				E('button', { 'class': 'shawnwrt-page-tab' + (activePage === 'coverage' ? ' active' : ''), 'data-page': 'coverage', 'click': function() { switchPage('coverage'); } }, [ _('Coverage Control') ])
+			]),
+			E('div', { 'class': 'shawnwrt-page-panel' + (activePage === 'analysis' ? ' active' : ''), 'data-page': 'analysis' }, [
+				E('div', { 'class': 'shawnwrt-channel-titlebar' }, [
+					E('h3', [ _('Spectrum overview') ]),
+					E('button', {
+						'class': 'btn cbi-button cbi-button-action shawnwrt-channel-refresh',
+						'click': scanAll
+					}, [ _('Refresh Channels') ])
+				]),
+				E('div', { 'class': 'shawnwrt-dual-col' }, radios.map(renderRadio))
+			]),
+			coveragePanel = E('div', { 'class': 'shawnwrt-page-panel' + (activePage === 'coverage' ? ' active' : ''), 'data-page': 'coverage' }, [ renderCoverage() ])
 		]);
 
-		window.setTimeout(scanAll, 0);
+		if (activePage === 'analysis')
+			window.setTimeout(scanAll, 0);
 		return root;
 	},
 

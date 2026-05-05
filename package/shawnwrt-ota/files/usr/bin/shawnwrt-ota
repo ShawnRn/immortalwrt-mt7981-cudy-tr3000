@@ -9,30 +9,28 @@ DOWNLOAD_DIR="${SHAWNWRT_OTA_DOWNLOAD_DIR:-/tmp/shawnwrt-ota}"
 KEEP_PACKAGES="${SHAWNWRT_OTA_KEEP_PACKAGES:-1}"
 FORCE="${SHAWNWRT_OTA_FORCE:-0}"
 STATE_CONFIG="shawnwrt_ota"
+CACHE_FILE="$DOWNLOAD_DIR/latest_info.cache"
+PROGRESS_FILE="$DOWNLOAD_DIR/job.progress"
 
 usage() {
 	cat <<'EOF'
 Usage: shawnwrt-ota <command>
 
 Commands:
-  check       Show latest matching firmware without downloading
-  status      Show installed and latest firmware state
+  check       Fetch latest firmware info in background or foreground
+  status      Show installed and latest firmware state (fast, uses cache)
   download    Download and verify the latest matching firmware
   test        Download, verify, and run sysupgrade --test
   install     Download, verify, test, then run sysupgrade preserving config
+  all         Sequential download, verify, test, and install
   start <command>
-              Run download/test/install in the background
-  job-status  Show background OTA task status and recent log
+              Run check/download/test/install/all in the background
+  job-status  Show background OTA task status, progress, and recent log
   finalize-pending
               Mark a pending install as installed after first boot
   mark-installed [tag]  Record current or given release tag as installed
   board       Print detected ShawnWrt OTA board id
   help        Show this help
-
-Environment:
-  SHAWNWRT_OTA_REPO=owner/repo
-  SHAWNWRT_OTA_DOWNLOAD_DIR=/tmp/shawnwrt-ota
-  SHAWNWRT_OTA_FORCE=1
 EOF
 }
 
@@ -94,11 +92,18 @@ needs_force_upgrade() {
 	[ "$board" = "cudy,tr3000-v1" ] && [ "$ota" = "cudy_tr3000-512mb-v1" ]
 }
 
+update_progress() {
+	[ -n "$1" ] || return 0
+	printf '%s\n' "$1" >"$PROGRESS_FILE"
+}
+
 release_json() {
 	need_cmd curl
 	curl -fsSL \
 		-H "Accept: application/vnd.github+json" \
 		-H "User-Agent: shawnwrt-ota" \
+		--connect-timeout 15 \
+		--max-time 30 \
 		"$API_BASE/repos/$REPO/releases/latest"
 }
 
@@ -118,8 +123,8 @@ asset_field() {
 }
 
 latest_info() {
-	local json board tag name url digest size
-	json="$(release_json)"
+	local json board tag name url digest size info
+	json="$(release_json)" || die "failed to fetch latest release info from GitHub"
 	board="$(ota_board)"
 	tag="$(printf '%s' "$json" | json_get '@.tag_name')"
 	name="$(asset_name_for_board "$json" "$board")"
@@ -128,14 +133,25 @@ latest_info() {
 	digest="$(asset_field "$json" "$name" digest)"
 	size="$(asset_field "$json" "$name" size)"
 
-	cat <<EOF
-BOARD=$board
+	info="BOARD=$board
 TAG=$tag
 ASSET=$name
 URL=$url
 DIGEST=$digest
 SIZE=$size
-EOF
+CHECKED_AT=$(date '+%Y-%m-%d %H:%M:%S %z')"
+
+	mkdir -p "$DOWNLOAD_DIR"
+	printf '%s\n' "$info" >"$CACHE_FILE"
+	printf '%s\n' "$info"
+}
+
+latest_info_cached() {
+	if [ -f "$CACHE_FILE" ]; then
+		cat "$CACHE_FILE"
+	else
+		return 1
+	fi
 }
 
 info_value() {
@@ -162,7 +178,7 @@ openwrt_release() {
 
 record_installed() {
 	local info tag asset digest date
-	info="${1:-$(latest_info)}"
+	info="${1:-$(latest_info_cached || latest_info)}"
 	tag="$(info_value "$info" TAG)"
 	asset="$(info_value "$info" ASSET)"
 	digest="$(info_value "$info" DIGEST)"
@@ -187,7 +203,7 @@ EOF
 
 record_pending() {
 	local info tag asset digest date
-	info="${1:-$(latest_info)}"
+	info="${1:-$(latest_info_cached || latest_info)}"
 	tag="$(info_value "$info" TAG)"
 	asset="$(info_value "$info" ASSET)"
 	digest="$(info_value "$info" DIGEST)"
@@ -233,9 +249,11 @@ EOF
 }
 
 status_info() {
-	local info latest_tag system_version openwrt_version recorded_tag installed_tag installed_asset installed_digest installed_at pending_tag pending_asset pending_digest pending_at state version_source
-	info="$(latest_info)"
+	local info latest_tag system_version openwrt_version recorded_tag installed_tag installed_asset installed_digest installed_at pending_tag pending_asset pending_digest pending_at state version_source checked_at
+	
+	info="$(latest_info_cached || true)"
 	latest_tag="$(info_value "$info" TAG)"
+	checked_at="$(info_value "$info" CHECKED_AT)"
 
 	system_version="$(system_tag)"
 	openwrt_version="$(openwrt_release)"
@@ -258,14 +276,14 @@ status_info() {
 	pending_digest="$(uci_get "${STATE_CONFIG}.state.pending_digest")"
 	pending_at="$(uci_get "${STATE_CONFIG}.state.pending_at")"
 
-	if [ -n "$pending_tag" ] && [ "$pending_tag" = "$latest_tag" ]; then
+	if [ -z "$latest_tag" ]; then
+		state="need_check"
+	elif [ -n "$pending_tag" ] && [ "$pending_tag" = "$latest_tag" ]; then
 		state="pending"
 	elif [ -n "$system_version" ] && [ "$system_version" = "$latest_tag" ]; then
 		state="current"
 	elif [ -n "$system_version" ]; then
 		state="update"
-	elif [ -z "$recorded_tag" ]; then
-		state="unknown"
 	else
 		state="unknown"
 	fi
@@ -278,6 +296,7 @@ OPENWRT_RELEASE=$openwrt_version
 RECORDED_TAG=$recorded_tag
 VERSION_SOURCE=$version_source
 CLOUD_TAG=$latest_tag
+CHECKED_AT=$checked_at
 INSTALLED_ASSET=$installed_asset
 INSTALLED_DIGEST=$installed_digest
 INSTALLED_AT=$installed_at
@@ -291,7 +310,7 @@ EOF
 
 download_firmware() {
 	local info url name digest want got out tmp
-	info="$(latest_info)"
+	info="$(latest_info_cached || latest_info)"
 	url="$(info_value "$info" URL)"
 	name="$(info_value "$info" ASSET)"
 	digest="$(info_value "$info" DIGEST)"
@@ -299,25 +318,31 @@ download_firmware() {
 	tmp="$out.tmp"
 
 	mkdir -p "$DOWNLOAD_DIR"
+	update_progress "0"
 	echo "$info"
 	echo "DOWNLOAD=$out"
 
 	if [ ! -s "$out" ]; then
 		rm -f "$tmp"
+		# Try to use stdbuf to ensure line buffering for progress parsing
 		curl -fsSLo "$tmp" \
 			--retry 3 \
 			--retry-all-errors \
 			--retry-delay 2 \
 			--connect-timeout 20 \
 			--max-time 900 \
-			--speed-time 30 \
-			--speed-limit 1024 \
-			"$url" || {
+			--progress-bar \
+			"$url" 2>&1 | stdbuf -oL tr '\r' '\n' | stdbuf -oL sed -u 's/.* \([0-9.]*\)%/\1/' | while read -r p; do
+				case "$p" in
+					[0-9]*) update_progress "$p" ;;
+				esac
+			done || {
 				rm -f "$tmp"
 				die "download failed: $url"
 			}
 		mv "$tmp" "$out"
 	fi
+	update_progress "100"
 
 	case "$digest" in
 		sha256:*)
@@ -361,7 +386,6 @@ test_firmware() {
 	fi
 
 	tmp="$(mktemp)"
-	# shellcheck disable=SC2086
 	if sysupgrade -T $args "$out" >"$tmp" 2>&1; then
 		if [ "$forced" = "1" ]; then
 			echo "INFO_FORCE_TR3000=1"
@@ -391,7 +415,7 @@ install_firmware() {
 	cat "$test_log"
 	out="$(firmware_path_from_download_output <"$test_log")"
 	rm -f "$test_log"
-	info="$(latest_info)"
+	info="$(latest_info_cached || latest_info)"
 	args=""
 	[ "$KEEP_PACKAGES" = "1" ] && args="$args -k"
 	needs_force_upgrade && args="$args -F"
@@ -405,10 +429,18 @@ install_firmware() {
 	if command -v setsid >/dev/null 2>&1; then
 		setsid sh -c "$cmd" >"$log" 2>&1 </dev/null &
 	else
-		# shellcheck disable=SC2086
 		( sleep 2; exec sysupgrade $args "$out" ) >"$log" 2>&1 </dev/null &
 	fi
 	echo "PID=$!"
+}
+
+all_in_one() {
+	echo "ACTION=all_started"
+	download_firmware >/dev/null
+	echo "ACTION=download_ok"
+	test_firmware >/dev/null
+	echo "ACTION=test_ok"
+	install_firmware
 }
 
 job_pid_file() {
@@ -443,8 +475,8 @@ start_job() {
 	cmd="${1:-}"
 
 	case "$cmd" in
-		download|test|install) ;;
-		*) die "background command must be one of: download, test, install" ;;
+		check|download|test|install|all) ;;
+		*) die "background command must be one of: check, download, test, install, all" ;;
 	esac
 
 	mkdir -p "$DOWNLOAD_DIR"
@@ -463,7 +495,7 @@ start_job() {
 		return 0
 	fi
 
-	rm -f "$rcfile" "$logfile"
+	rm -f "$rcfile" "$logfile" "$PROGRESS_FILE"
 	printf '%s\n' "$cmd" >"$cmdfile"
 	date '+%Y-%m-%d %H:%M:%S %z' >"$startedfile"
 
@@ -471,14 +503,14 @@ start_job() {
 		rc=0
 		echo "JOB_COMMAND=$cmd"
 		echo "JOB_STARTED_AT=$(cat "$startedfile" 2>/dev/null || true)"
-		if "$0" "$cmd"; then
-			rc=0
-		else
-			rc="$?"
-		fi
-		echo "JOB_EXIT=$rc"
-		printf '%s\n' "$rc" >"$rcfile"
-		exit "$rc"
+		case "$cmd" in
+			all) all_in_one ;;
+			*) "$0" "$cmd" ;;
+		esac
+		exit_code=$?
+		echo "JOB_EXIT=$exit_code"
+		printf '%s\n' "$exit_code" >"$rcfile"
+		exit "$exit_code"
 	) >"$logfile" 2>&1 &
 
 	pid="$!"
@@ -490,7 +522,7 @@ start_job() {
 }
 
 job_status() {
-	local pid pidfile rcfile logfile cmdfile startedfile running rc
+	local pid pidfile rcfile logfile cmdfile startedfile running rc progress
 	pidfile="$(job_pid_file)"
 	rcfile="$(job_rc_file)"
 	logfile="$(job_log_file)"
@@ -499,6 +531,7 @@ job_status() {
 	pid="$(cat "$pidfile" 2>/dev/null || true)"
 	running=0
 	rc=""
+	progress="$(cat "$PROGRESS_FILE" 2>/dev/null || echo "0")"
 
 	if job_is_running "$pid"; then
 		running=1
@@ -509,6 +542,7 @@ job_status() {
 	echo "JOB_RUNNING=$running"
 	echo "JOB_COMMAND=$(cat "$cmdfile" 2>/dev/null || true)"
 	echo "JOB_PID=$pid"
+	echo "JOB_PROGRESS=$progress"
 	echo "JOB_STARTED_AT=$(cat "$startedfile" 2>/dev/null || true)"
 	echo "JOB_EXIT=$rc"
 	echo "JOB_LOG=$logfile"
@@ -539,6 +573,9 @@ main() {
 			;;
 		install)
 			install_firmware
+			;;
+		all)
+			all_in_one
 			;;
 		start)
 			start_job "${2:-}"

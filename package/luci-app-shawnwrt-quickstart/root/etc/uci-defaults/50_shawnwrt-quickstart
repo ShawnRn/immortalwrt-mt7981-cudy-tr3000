@@ -1,7 +1,7 @@
 #!/bin/sh
 
-uci -q set luci.main.default_url='/cgi-bin/luci/admin/quickstart'
+uci -q set luci.main.default_url='/cgi-bin/luci/admin/index'
 uci -q commit luci
 
-rm -f /tmp/luci-indexcache /tmp/luci-indexcache.*
+rm -f /tmp/luci-indexcache /tmp/luci-indexcache.* /tmp/luci-modulecache/*
 exit 0
