@@ -20,16 +20,39 @@ set -euo pipefail
 
 : "${GITHUB_WORKSPACE:?GITHUB_WORKSPACE must point to the firmware repo root}"
 
-# Copy custom local packages into OpenWrt tree so they are available during build.
+# ─ ShawnWrt packages from the canonical packages repository ──
+# All ShawnWrt plugins (channel-analysis, ota, index) live in
+# ShawnRn/shawnwrt-packages. The firmware build clones the main
+# branch and copies the OpenWrt packages out of it.
+PKG_REPO="https://github.com/ShawnRn/shawnwrt-packages.git"
+PKG_BRANCH="main"
+PKG_TMP="$(mktemp -d)"
+
+cleanup_pkg() { rm -rf "$PKG_TMP"; }
+trap cleanup_pkg EXIT
+
+git clone -q --depth 1 -b "$PKG_BRANCH" "$PKG_REPO" "$PKG_TMP"
+
+for pkg in \
+  shawnwrt-ota \
+  luci-app-shawnwrt-ota \
+  luci-app-shawnwrt-channel-analysis \
+  luci-app-shawnwrt-index; do
+  if [ -d "$PKG_TMP/openwrt/$pkg" ]; then
+    mkdir -p package
+    rm -rf "package/$pkg"
+    cp -r "$PKG_TMP/openwrt/$pkg" "package/$pkg"
+  fi
+done
+
+# ── Firmware-local packages (not in ShawnWrt-Packages) ──
+# These are firmware-specific and maintained only in the firmware repo.
 for pkg in \
   luci-compat-keep \
   luci-proto-minieap \
   luci-i18n-minieap-zh-cn \
   minieap-gdufs \
-  luci-app-shawnwrt-channel-analysis \
   shawnwrt-defaults \
-  shawnwrt-ota \
-  luci-app-shawnwrt-ota \
   luci-app-shawnwrt-quickstart; do
   if [ -d "$GITHUB_WORKSPACE/package/$pkg" ]; then
     mkdir -p package
