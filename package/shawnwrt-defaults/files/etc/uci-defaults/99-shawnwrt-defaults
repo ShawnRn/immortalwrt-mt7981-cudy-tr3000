@@ -3,7 +3,7 @@
 LAN_IP="192.168.10.1"
 HOSTNAME="ShawnWrt"
 SSID="Everyday is Holiday."
-PACKAGES_FEED="src/gz shawnwrt_packages https://fastly.jsdelivr.net/gh/ShawnRn/shawnwrt-packages@opkg/"
+PACKAGES_FEED="src/gz shawnwrt_packages https://raw.githubusercontent.com/ShawnRn/shawnwrt-packages/opkg/"
 KIDDIN9_FEED="src/gz kiddin9 https://dl.openwrt.ai/releases/24.10/packages/aarch64_cortex-a53/kiddin9"
 
 uci -q batch <<EOF
@@ -80,7 +80,9 @@ fi
 
 mkdir -p /etc/opkg
 touch /etc/opkg/customfeeds.conf
-grep -qF "${PACKAGES_FEED}" /etc/opkg/customfeeds.conf || echo "${PACKAGES_FEED}" >> /etc/opkg/customfeeds.conf
+# Clean up old shawnwrt_packages declarations to avoid duplicates
+sed -i '/shawnwrt_packages/d' /etc/opkg/customfeeds.conf
+echo "${PACKAGES_FEED}" >> /etc/opkg/customfeeds.conf
 grep -qF "${KIDDIN9_FEED}" /etc/opkg/customfeeds.conf || echo "${KIDDIN9_FEED}" >> /etc/opkg/customfeeds.conf
 
 mkdir -p /etc/dropbear
