@@ -11,9 +11,9 @@
 		},
 		"write": {
 			"ubus": {
-				"uci": [ "set", "changes", "apply", "confirm" ]
+				"uci": [ "set", "add", "changes", "apply", "confirm" ]
 			},
-			"uci": [ "wireless" ]
+			"uci": [ "wireless", "shawnwrt" ]
 		}
 	}
 }
