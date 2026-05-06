@@ -1,2 +1,0 @@
-msgid "quickstart_vue_lang"
-msgstr "zh-cn"

@@ -242,3 +242,51 @@ msgstr "变更预览"
 
 msgid "Review these UCI changes before applying."
 msgstr "应用前请确认这些 UCI 变更。"
+
+msgid "Smart Roaming"
+msgstr "智能漫游"
+
+msgid "Smart Roaming Optimization"
+msgstr "智能漫游优化"
+
+msgid "Use user-space logic to guide weak-signal clients to roam, avoiding kernel instability."
+msgstr "使用用户态逻辑引导弱信号客户端漫游，避免内核不稳。"
+
+msgid "Enable"
+msgstr "开启"
+
+msgid "2.4GHz Threshold (dBm)"
+msgstr "2.4GHz 阈值 (dBm)"
+
+msgid "5GHz Threshold (dBm)"
+msgstr "5GHz 阈值 (dBm)"
+
+msgid "Check Interval (sec)"
+msgstr "检测间隔 (秒)"
+
+msgid "Save & Apply"
+msgstr "保存并应用"
+
+msgid "Connected Clients"
+msgstr "已连接客户端"
+
+msgid "No clients connected."
+msgstr "暂无客户端连接。"
+
+msgid "Scans nearby APs and suggests the best channels for your environment."
+msgstr "扫描附近 AP 并为你当前的 RF 环境推荐最佳信道方案。"
+
+msgid "Changes applied successfully. Refreshing..."
+msgstr "设置已成功应用，正在刷新页面..."
+
+msgid "802.11v BSS Transition"
+msgstr "802.11v BSS 切换"
+
+msgid "2.4GHz Roaming (dBm)"
+msgstr "2.4GHz 漫游阈值 (dBm)"
+
+msgid "5GHz Roaming (dBm)"
+msgstr "5GHz 漫游阈值 (dBm)"
+
+msgid "Long press to show password"
+msgstr "长按显示密码"

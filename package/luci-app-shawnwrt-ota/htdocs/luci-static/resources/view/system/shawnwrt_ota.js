@@ -185,11 +185,15 @@ return view.extend({
 			}
 			.swrt-ota-progress-track { height: 6px; background: rgba(127,127,127,0.15); border-radius: 10px; overflow: hidden; }
 			.swrt-ota-progress-fill { height: 100%; background: #007aff; width: 0%; transition: width 0.3s ease; }
+			@keyframes swrt-ota-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+			.swrt-ota-spin { animation: swrt-ota-spin 1s linear infinite; }
+			.swrt-ota-btn-with-icon { display: inline-flex; align-items: center; gap: 8px; }
 		`]);
 
 		var iconCheck = '<svg viewBox="0 0 24 24"><path d="M21,7L9,19L3.5,13.5L4.91,12.09L9,16.17L19.59,5.59L21,7Z"/></svg>';
 		var iconUpdate = '<svg viewBox="0 0 24 24"><path d="M12,18A6,6 0 0,1 6,12C6,11 6.25,10.03 6.7,9.2L5.24,7.74C4.46,8.97 4,10.43 4,12A8,8 0 0,0 12,20V23L16,19L12,15V18M12,4V1L8,5L12,9V6A6,6 0 0,1 18,12C18,13 17.75,13.97 17.3,14.8L18.76,16.26C19.54,15.03 20,13.57 20,12A8,8 0 0,0 12,4Z"/></svg>';
 		var iconWait = '<svg viewBox="0 0 24 24"><path d="M12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z"/></svg>';
+		var iconSpinner = '<svg class="swrt-ota-spin" viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M12,4V2A10,10 0 0,0 2,12H4A8,8 0 0,1 12,4Z"/></svg>';
 
 		var statusTitle = E('div', { 'class': 'swrt-ota-status-title' }, [L.checking]);
 		var statusDesc = E('div', { 'class': 'swrt-ota-status-desc' }, ['---']);
@@ -288,9 +292,17 @@ return view.extend({
 		function startCheck() {
 			if (actionBtn.disabled) return;
 			actionBtn.disabled = true;
-			actionBtn.textContent = L.checking;
+			actionBtn.innerHTML = '<span class="swrt-ota-btn-with-icon">' + iconSpinner + L.checking + '</span>';
+			statusTitle.textContent = L.checking;
+			statusDesc.textContent = '';
 			runOta(['start', 'check']).then(function() {
 				pollJob();
+			}).catch(function(err) {
+				actionBtn.disabled = false;
+				actionBtn.textContent = L.checkNow;
+				statusTitle.textContent = L.error;
+				statusDesc.textContent = err.message || 'Network error';
+				ui.addNotification(null, E('p', [L.error + ': ' + (err.message || 'Unknown error')]), 'danger');
 			});
 		}
 
@@ -340,6 +352,7 @@ return view.extend({
 						document.getElementById('swrt-ota-prog-pct').textContent = progress + '%';
 					} else if (cmd === 'check') {
 						statusTitle.textContent = L.checking;
+						actionBtn.innerHTML = '<span class="swrt-ota-btn-with-icon">' + iconSpinner + L.checking + '</span>';
 					}
 					
 					if (res.stdout.indexOf('ACTION=test_ok') !== -1) {

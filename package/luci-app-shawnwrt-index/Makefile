@@ -1,10 +1,10 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=luci-app-shawnwrt-index
-PKG_VERSION:=0.12.9
-PKG_RELEASE:=r1
+PKG_VERSION:=1.0.0
+PKG_RELEASE:=1
 
-LUCI_TITLE:=ShawnWrt QuickStart homepage
+LUCI_TITLE:=ShawnWrt Index homepage
 LUCI_DEPENDS:=+luci-base +luci-lua-runtime
 LUCI_PKGARCH:=all
 PKG_MAINTAINER:=Shawn Rain

@@ -6,7 +6,7 @@ Copyright 2026 Shawn Rain <shawn@shawnwrt.lan>
 module("luci.controller.index", package.seeall)
 
 function index()
-    entry({"admin", "index"}, template("index/index"), _("主页"), 1).leaf = true
+    entry({"admin", "index"}, view("index/home"), _("主页"), 1).leaf = true
     entry({"admin", "index", "api", "system", "status"}, call("api_system_status")).leaf = true
     entry({"admin", "index", "api", "u", "system", "version"}, call("api_system_version")).leaf = true
     entry({"admin", "index", "api", "system", "check-update"}, call("api_check_update")).leaf = true
