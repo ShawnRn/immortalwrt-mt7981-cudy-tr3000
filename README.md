@@ -108,8 +108,9 @@ ShawnWrt includes a small OTA helper and LuCI page:
 - CLI: `shawnwrt-ota`
 - LuCI: **System -> ShawnWrt OTA**
 - Standalone ShawnWrt Packages repo: <https://github.com/ShawnRn/shawnwrt-packages>
-- Built-in opkg feed: `src/gz shawnwrt_packages https://raw.githubusercontent.com/ShawnRn/shawnwrt-packages/opkg`
-- Built-in third-party package feed: `src/gz kiddin9 https://dl.openwrt.ai/releases/24.10/packages/aarch64_cortex-a53/kiddin9`
+- Built-in opkg feeds: ImmortalWrt 24.10.5 default `core`, `base`, `luci`,
+  `packages`, `routing`, and `telephony` feeds for `mediatek/filogic` and
+  `aarch64_cortex-a53`.
 
 The OTA helper:
 
